@@ -95,13 +95,22 @@ def list_accounts(item_id: str) -> list[dict]:
 
 
 def list_transactions(account_id: str, page_size: int = 500) -> list[dict]:
+    """Busca todas as transações de uma conta, paginando até o fim.
+
+    Pede explicitamente `from` = 12 meses atrás: sem esse parâmetro a
+    Pluggy aplica um período padrão mais curto. 12 meses é o teto que o
+    Open Finance normalmente autoriza pra maioria dos bancos/conectores
+    (histórico mais antigo que isso costuma não estar disponível nem do
+    lado do banco, independente do que a gente pedir aqui)."""
+    desde = (dt.date.today() - dt.timedelta(days=365)).isoformat()
+
     resultados: list[dict] = []
     page = 1
     while True:
         data = _request(
             "GET",
             "/transactions",
-            params={"accountId": account_id, "pageSize": page_size, "page": page},
+            params={"accountId": account_id, "pageSize": page_size, "page": page, "from": desde},
         )
         resultados.extend(data.get("results", []))
         total_pages = data.get("totalPages", 1)
