@@ -1,0 +1,23 @@
+# Segredos - nunca versionar
+.env
+.env.local
+*.env
+
+# Backend (Python)
+__pycache__/
+*.pyc
+*.db
+venv/
+.venv/
+
+# Frontend (Node)
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
