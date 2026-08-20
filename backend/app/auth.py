@@ -38,16 +38,23 @@ def create_session(db: DbSession, user_id: int, response: Response) -> str:
     expires_at = dt.datetime.utcnow() + SESSION_TTL
     db.add(models.Session(token=token, user_id=user_id, expires_at=expires_at))
     db.commit()
+
+    is_prod = os.getenv("DEBUG", "true").lower() != "true"
+    # Em produção, frontend e backend ficam em subdomínios *.onrender.com
+    # diferentes — onrender.com está na Public Suffix List (como
+    # github.io/vercel.app), então o navegador trata cada subdomínio como
+    # um site diferente. "SameSite=Lax" bloqueia o cookie em requisições
+    # cross-site via fetch/XHR (só permite navegação de página inteira),
+    # então precisa de "None" (que por sua vez exige Secure=True) pra
+    # cookie ir junto nas chamadas da API. Em dev local, front e back
+    # ficam ambos em "localhost" (mesmo site, portas diferentes não
+    # importam pra SameSite) — "Lax" já basta e evita exigir HTTPS local.
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
-        samesite="lax",
-        # secure=False só em dev local (http://localhost não manda cookies
-        # Secure); em produção (DEBUG != "true") o cookie só é enviado por
-        # HTTPS. Pendência de segurança da Etapa 4.5 do passo-a-passo,
-        # nunca tinha sido aplicada de fato até agora.
-        secure=os.getenv("DEBUG", "true").lower() != "true",
+        samesite="none" if is_prod else "lax",
+        secure=is_prod,
         max_age=int(SESSION_TTL.total_seconds()),
         path="/",
     )
