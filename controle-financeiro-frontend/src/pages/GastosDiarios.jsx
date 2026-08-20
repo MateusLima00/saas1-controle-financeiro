@@ -59,7 +59,7 @@ export default function GastosDiarios() {
       mostrarToast(`Gasto "${novo.descricao}" lançado.`);
       setNovo({ descricao: "", valor: "", categoriaId: categorias[0]?.id ?? "" });
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível lançar o gasto.");
+      mostrarToast(err.message || "Não foi possível lançar o gasto.", "erro");
     } finally {
       setEnviando(false);
     }

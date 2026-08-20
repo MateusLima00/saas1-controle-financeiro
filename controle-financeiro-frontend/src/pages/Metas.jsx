@@ -89,7 +89,7 @@ export default function Metas() {
       }
       setModalAberto(false);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível salvar a meta.");
+      mostrarToast(err.message || "Não foi possível salvar a meta.", "erro");
     }
   }
 
@@ -101,7 +101,7 @@ export default function Metas() {
       setMetas((atual) => atual.filter((m) => m.id !== alvo.id));
       mostrarToast(`Meta "${alvo.nome}" removida.`);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível excluir a meta.");
+      mostrarToast(err.message || "Não foi possível excluir a meta.", "erro");
     }
   }
 
@@ -119,7 +119,7 @@ export default function Metas() {
       setValorAporte("");
       setAporteAbertoId(null);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível registrar o aporte.");
+      mostrarToast(err.message || "Não foi possível registrar o aporte.", "erro");
     }
   }
 

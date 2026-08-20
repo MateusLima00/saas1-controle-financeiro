@@ -73,7 +73,7 @@ export default function Assinaturas() {
       }
       setModalAberto(false);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível salvar a assinatura.");
+      mostrarToast(err.message || "Não foi possível salvar a assinatura.", "erro");
     }
   }
 
@@ -85,7 +85,7 @@ export default function Assinaturas() {
       setAssinaturas((atual) => atual.filter((a) => a.id !== alvo.id));
       mostrarToast(`Assinatura "${alvo.nome}" removida.`);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível excluir a assinatura.");
+      mostrarToast(err.message || "Não foi possível excluir a assinatura.", "erro");
     }
   }
 

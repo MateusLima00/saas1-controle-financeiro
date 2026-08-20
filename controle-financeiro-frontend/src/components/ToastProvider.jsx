@@ -25,9 +25,12 @@ export function ToastProvider({ children }) {
   const mostrarToast = useCallback((mensagem, tipo = "sucesso") => {
     const id = Date.now() + Math.random();
     setToasts((atual) => [...atual, { id, mensagem, tipo }]);
+    // Erros ficam mais tempo na tela — geralmente têm mais texto pra ler
+    // (ex: mensagens de erro da API) do que uma confirmação simples.
+    const duracao = tipo === "erro" ? 8000 : 5000;
     setTimeout(() => {
       setToasts((atual) => atual.filter((t) => t.id !== id));
-    }, 3200);
+    }, duracao);
   }, []);
 
   function fechar(id) {

@@ -86,7 +86,7 @@ export default function Contas() {
       setNova({ banco: "", tipo: "checking", saldo: "" });
       setModalAberto(false);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível adicionar a conta.");
+      mostrarToast(err.message || "Não foi possível adicionar a conta.", "erro");
     }
   }
 
@@ -98,7 +98,7 @@ export default function Contas() {
       setContas(atualizadas);
       mostrarToast("Contas sincronizadas.");
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível sincronizar agora.");
+      mostrarToast(err.message || "Não foi possível sincronizar agora.", "erro");
     } finally {
       setSincronizando(false);
     }
@@ -110,7 +110,7 @@ export default function Contas() {
       const { connectToken: token } = await api.post("/accounts/connect-token");
       setConnectToken(token);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível iniciar a conexão com o banco.");
+      mostrarToast(err.message || "Não foi possível iniciar a conexão com o banco.", "erro");
     } finally {
       setCarregandoToken(false);
     }
@@ -124,7 +124,7 @@ export default function Contas() {
 
   function aoErrarConexao(error) {
     setConnectToken(null);
-    mostrarToast(error?.message || "Não foi possível conectar o banco.");
+    mostrarToast(error?.message || "Não foi possível conectar o banco.", "erro");
   }
 
   function abrirSeletorImportacao(contaId) {
@@ -149,7 +149,7 @@ export default function Contas() {
       const atualizadas = await api.get("/accounts");
       setContas(atualizadas);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível importar o arquivo.");
+      mostrarToast(err.message || "Não foi possível importar o arquivo.", "erro");
     } finally {
       setImportandoId(null);
     }
@@ -163,7 +163,7 @@ export default function Contas() {
       setContas((atual) => atual.filter((c) => c.id !== alvo.id));
       mostrarToast(`Conta "${alvo.banco}" removida.`);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível excluir a conta.");
+      mostrarToast(err.message || "Não foi possível excluir a conta.", "erro");
     }
   }
 

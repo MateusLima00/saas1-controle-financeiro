@@ -89,7 +89,7 @@ export default function Investimentos() {
       }
       setModalAberto(false);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível salvar o investimento.");
+      mostrarToast(err.message || "Não foi possível salvar o investimento.", "erro");
     }
   }
 
@@ -101,7 +101,7 @@ export default function Investimentos() {
       setInvestimentos((atual) => atual.filter((i) => i.id !== alvo.id));
       mostrarToast(`Investimento "${alvo.nome}" removido.`);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível excluir o investimento.");
+      mostrarToast(err.message || "Não foi possível excluir o investimento.", "erro");
     }
   }
 
@@ -119,7 +119,7 @@ export default function Investimentos() {
       setValorAporte("");
       setAporteAbertoId(null);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível registrar o aporte.");
+      mostrarToast(err.message || "Não foi possível registrar o aporte.", "erro");
     }
   }
 

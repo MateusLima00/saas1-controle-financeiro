@@ -69,7 +69,7 @@ export default function Categorias() {
       }
       setModalAberto(false);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível salvar a categoria.");
+      mostrarToast(err.message || "Não foi possível salvar a categoria.", "erro");
     }
   }
 
@@ -81,7 +81,7 @@ export default function Categorias() {
       setCategorias((atual) => atual.filter((c) => c.id !== alvo.id));
       mostrarToast(`Categoria "${alvo.nome}" removida.`);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível excluir a categoria.");
+      mostrarToast(err.message || "Não foi possível excluir a categoria.", "erro");
     }
   }
 
