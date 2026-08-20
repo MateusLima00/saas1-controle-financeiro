@@ -16,6 +16,7 @@ from .routers import (
     goals,
     integrations,
     investments,
+    pluggy_webhook,
     subscriptions,
     telegram,
     transactions,
@@ -45,6 +46,7 @@ app.include_router(subscriptions.router)
 app.include_router(dashboard.router)
 app.include_router(telegram.router)
 app.include_router(integrations.router)
+app.include_router(pluggy_webhook.router)
 
 
 @app.get("/health")
