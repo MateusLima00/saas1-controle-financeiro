@@ -106,12 +106,26 @@ def buscar_link_de_login(imap_email: str, imap_senha_app: str) -> str:
     )
 
 
+def _clicar_resiliente(page: Page, texto: str, timeout_ms: int = 15000) -> None:
+    """`page.click()` puro às vezes trava esperando a ação "completar" quando
+    tem uma animação/overlay (ex: cookie banner) por cima no instante do
+    clique. Tenta um clique normal primeiro; se travar, cai pra
+    `force=True` (ignora a checagem de "estável"/sobreposição)."""
+    locator = page.get_by_text(texto, exact=True).first
+    try:
+        locator.click(timeout=timeout_ms)
+    except Exception:
+        print(f'  Clique normal em "{texto}" travou, tentando force=True.')
+        locator.click(timeout=timeout_ms, force=True)
+
+
 def logar(page: Page, meu_pluggy_email: str, imap_email: str, imap_senha_app: str) -> None:
     page.goto("https://meu.pluggy.ai/", wait_until="domcontentloaded", timeout=60000)
-    page.click("text=Entrar")
+    page.wait_for_timeout(1500)
+    _clicar_resiliente(page, "Entrar")
     page.wait_for_selector('input[type="email"]', timeout=15000)
     page.fill('input[type="email"]', meu_pluggy_email)
-    page.click("text=Enviar")
+    _clicar_resiliente(page, "Enviar")
     page.wait_for_timeout(1500)  # dá tempo do Auth0 processar o envio
 
     link = buscar_link_de_login(imap_email, imap_senha_app)
@@ -134,9 +148,9 @@ def listar_links_de_conexoes(page: Page) -> list[str]:
 def atualizar_conexao(page: Page, href: str) -> bool:
     url = f"https://meu.pluggy.ai{href}"
     page.goto(url, wait_until="domcontentloaded", timeout=60000)
-    page.wait_for_timeout(1000)
+    page.wait_for_timeout(1500)
     try:
-        page.click("text=Atualizar", timeout=10000)
+        _clicar_resiliente(page, "Atualizar", timeout_ms=15000)
     except Exception as exc:
         print(f"  {url}: não consegui clicar em Atualizar ({exc})")
         return False
