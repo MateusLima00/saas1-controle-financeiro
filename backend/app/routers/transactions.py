@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from .. import models, schemas
 from ..auth import get_current_user
+from ..categorization import aprender_regra
 from ..database import get_db
 
 router = APIRouter(
@@ -63,8 +64,17 @@ def update_transaction(
     )
     if not transacao:
         raise HTTPException(404, "Transação não encontrada")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    dados = payload.model_dump(exclude_unset=True)
+    for field, value in dados.items():
         setattr(transacao, field, value)
+
+    # Correção manual de categoria (ex: no Extrato) ensina o sistema: a
+    # próxima transação com descrição parecida já cai categorizada sozinha.
+    if "categoria_id" in dados and dados["categoria_id"]:
+        categoria = db.query(models.Category).filter(models.Category.id == dados["categoria_id"]).first()
+        if categoria:
+            aprender_regra(db, categoria, transacao.descricao)
+
     db.commit()
     db.refresh(transacao)
     return _to_out(transacao)

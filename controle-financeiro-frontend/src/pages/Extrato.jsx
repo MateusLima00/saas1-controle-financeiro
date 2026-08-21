@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Download } from "lucide-react";
 import { api } from "../api/client";
+import { useToast } from "../components/ToastProvider";
 import { formatDateShort, formatCurrency } from "../utils/format";
 import { exportarTransacoesCsv } from "../utils/exportCsv";
 
@@ -41,9 +42,11 @@ export default function Extrato() {
   const [busca, setBusca] = useState("");
 
   const [contas, setContas] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [transacoes, setTransacoes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
+  const { mostrarToast } = useToast();
 
   // Troca de período pré-definido recalcula de/ate automaticamente.
   // "Personalizado" deixa os dois inputs livres pro usuário escolher.
@@ -69,6 +72,13 @@ export default function Extrato() {
       .catch(() => {
         // Falha ao carregar contas não deve travar o extrato — só o
         // filtro por conta fica indisponível.
+      });
+    api
+      .get("/categories")
+      .then(setCategorias)
+      .catch(() => {
+        // Idem: sem categorias carregadas, só o select de editar categoria
+        // por linha fica indisponível.
       });
   }, []);
 
@@ -98,12 +108,16 @@ export default function Extrato() {
   // fixa e desatualizada).
   const categoriasDisponiveis = useMemo(() => {
     const unicas = new Set(transacoes.map((t) => t.categoria).filter(Boolean));
-    return ["todas", ...unicas];
+    const opcoes = ["todas", ...unicas];
+    if (transacoes.some((t) => !t.categoria)) opcoes.push("sem-categoria");
+    return opcoes;
   }, [transacoes]);
 
   const transacoesFiltradas = useMemo(() => {
     return transacoes.filter((t) => {
-      const bateCategoria = categoriaFiltro === "todas" || t.categoria === categoriaFiltro;
+      const bateCategoria =
+        categoriaFiltro === "todas" ||
+        (categoriaFiltro === "sem-categoria" ? !t.categoria : t.categoria === categoriaFiltro);
       const bateBusca = t.descricao.toLowerCase().includes(busca.toLowerCase());
       return bateCategoria && bateBusca;
     });
@@ -111,6 +125,29 @@ export default function Extrato() {
 
   function exportarCsv() {
     exportarTransacoesCsv(transacoesFiltradas, `extrato_${de || "tudo"}_a_${ate || "tudo"}.csv`);
+  }
+
+  async function alterarCategoria(transacaoId, categoriaId) {
+    const anterior = transacoes;
+    // Atualiza otimista pra não esperar o round-trip antes de refletir a
+    // escolha — se der erro, volta pro estado anterior.
+    setTransacoes((atual) =>
+      atual.map((t) =>
+        t.id === transacaoId
+          ? {
+              ...t,
+              categoria_id: categoriaId,
+              categoria: categorias.find((c) => c.id === categoriaId)?.nome ?? null,
+            }
+          : t
+      )
+    );
+    try {
+      await api.put(`/transactions/${transacaoId}`, { categoria_id: categoriaId });
+    } catch (err) {
+      setTransacoes(anterior);
+      mostrarToast(err.message || "Não foi possível alterar a categoria.", "erro");
+    }
   }
 
   return (
@@ -179,7 +216,7 @@ export default function Extrato() {
         >
           {categoriasDisponiveis.map((cat) => (
             <option key={cat} value={cat}>
-              {cat === "todas" ? "Todas as categorias" : cat}
+              {cat === "todas" ? "Todas as categorias" : cat === "sem-categoria" ? "Sem categoria" : cat}
             </option>
           ))}
         </select>
@@ -219,12 +256,25 @@ export default function Extrato() {
                     </td>
                     <td className="px-4 py-2">{t.descricao}</td>
                     <td className="px-4 py-2 text-text-secondary whitespace-nowrap">
-                      {t.conta || "—"}
+                      {t.conta || "Dinheiro"}
                     </td>
                     <td className="px-4 py-2">
-                      <span className="bg-surface-2 text-text-secondary text-xs px-2 py-0.5 rounded-full">
-                        {t.categoria}
-                      </span>
+                      <select
+                        value={t.categoria_id ?? ""}
+                        onChange={(e) =>
+                          alterarCategoria(t.id, e.target.value ? Number(e.target.value) : null)
+                        }
+                        className={`text-xs px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer ${
+                          t.categoria ? "bg-surface-2 text-text-secondary" : "bg-danger/10 text-danger"
+                        }`}
+                      >
+                        <option value="">Sem categoria</option>
+                        {categorias.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nome}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td
                       className={`px-4 py-2 text-right whitespace-nowrap ${

@@ -7,7 +7,7 @@ from .. import models, schemas
 from ..auth import get_current_user
 from ..categorization import categoria_para_descricao
 from ..database import get_db
-from ..import_parsers import parse_csv, parse_ofx
+from ..import_parsers import parse_csv, parse_ofx, parse_pdf
 from ..timezone_utils import hoje
 
 router = APIRouter(
@@ -64,8 +64,12 @@ async def import_extrato(account_id: int, file: UploadFile, db: DbSession = Depe
             transacoes = parse_ofx(conteudo, account_id)
         elif nome.endswith(".csv"):
             transacoes = parse_csv(conteudo, account_id)
+        elif nome.endswith(".pdf"):
+            transacoes = parse_pdf(conteudo, account_id)
         else:
-            raise HTTPException(400, "Formato não suportado. Envie um arquivo .csv, .ofx ou .qfx.")
+            raise HTTPException(
+                400, "Formato não suportado. Envie um arquivo .csv, .ofx, .qfx ou .pdf."
+            )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
 

@@ -138,7 +138,7 @@ export default function ExtratoContaModal({ conta, onFechar, onImportar }) {
             className="text-sm px-3 py-1.5 rounded-[var(--radius-control)] border border-border hover:bg-surface-2 transition-colors flex items-center gap-1.5"
           >
             <Upload size={14} />
-            Importar CSV/OFX
+            Importar CSV/OFX/PDF
           </button>
         )}
       </div>

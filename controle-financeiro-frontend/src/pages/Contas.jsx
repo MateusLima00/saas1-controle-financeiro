@@ -135,7 +135,7 @@ export default function Contas() {
       <input
         ref={inputArquivoRef}
         type="file"
-        accept=".csv,.ofx,.qfx"
+        accept=".csv,.ofx,.qfx,.pdf"
         className="hidden"
         onChange={importarArquivo}
       />
