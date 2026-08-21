@@ -79,6 +79,7 @@ class NeroContaResumoOut(BaseModel):
 
 
 class NeroTransacaoResumoOut(BaseModel):
+    id: int
     data: dt.date
     descricao: str
     valor: float
@@ -106,6 +107,7 @@ def _transacao_para_nero(t: models.Transaction) -> NeroTransacaoResumoOut:
     # aprender regra de categoria (remove "Pix enviado:", "Cp:12345-" etc,
     # deixando só quem pagou/recebeu).
     return NeroTransacaoResumoOut(
+        id=t.id,
         data=t.data,
         descricao=extrair_palavra_chave(t.descricao),
         valor=t.valor,
@@ -160,3 +162,112 @@ def resumo_para_nero(db: DbSession = Depends(get_db)):
         gastosPorCategoria=categorias,
         ultimosPorConta=ultimos_por_conta,
     )
+
+
+# -- Consultas extras (metas, assinaturas, parcelas, categorias) --------
+
+
+class NeroMetaOut(BaseModel):
+    nome: str
+    valorAtual: float
+    valorAlvo: float
+    prazo: str | None = None
+
+
+@router.get("/nero/metas", response_model=list[NeroMetaOut])
+def listar_metas_para_nero(db: DbSession = Depends(get_db)):
+    metas = db.query(models.Goal).all()
+    return [
+        NeroMetaOut(nome=m.nome, valorAtual=m.valor_atual, valorAlvo=m.valor_alvo, prazo=m.prazo) for m in metas
+    ]
+
+
+class NeroAssinaturaOut(BaseModel):
+    nome: str
+    valor: float
+    ciclo: str
+    proximaCobranca: str | None = None
+
+
+@router.get("/nero/assinaturas", response_model=list[NeroAssinaturaOut])
+def listar_assinaturas_para_nero(db: DbSession = Depends(get_db)):
+    assinaturas = db.query(models.Subscription).all()
+    return [
+        NeroAssinaturaOut(nome=a.nome, valor=a.valor, ciclo=a.ciclo, proximaCobranca=a.proxima_cobranca)
+        for a in assinaturas
+    ]
+
+
+class NeroParcelaOut(BaseModel):
+    compra: str
+    numero: int
+    numParcelas: int
+    valor: float
+    dataVencimento: dt.date
+    conta: str
+
+
+@router.get("/nero/parcelas", response_model=list[NeroParcelaOut])
+def listar_parcelas_pendentes_para_nero(db: DbSession = Depends(get_db)):
+    """Só as parcelas AINDA NÃO lançadas (vencimento futuro) — as já
+    materializadas em transação de verdade já aparecem no resumo normal."""
+    parcelas = (
+        db.query(models.Parcela)
+        .filter(models.Parcela.transaction_id.is_(None))
+        .order_by(models.Parcela.data_vencimento)
+        .all()
+    )
+    return [
+        NeroParcelaOut(
+            compra=p.compra.descricao,
+            numero=p.numero,
+            numParcelas=p.compra.num_parcelas,
+            valor=p.valor,
+            dataVencimento=p.data_vencimento,
+            conta=p.compra.conta.banco if p.compra.conta else "?",
+        )
+        for p in parcelas
+    ]
+
+
+class NeroCategoryOut(BaseModel):
+    id: int
+    nome: str
+
+
+@router.get("/nero/categorias", response_model=list[NeroCategoryOut])
+def listar_categorias_para_nero(db: DbSession = Depends(get_db)):
+    """Pro Nero conseguir casar o nome que a pessoa falar ("muda pra
+    Alimentação") com o categoria_id de verdade, ao editar uma transação."""
+    categorias = db.query(models.Category).all()
+    return [NeroCategoryOut(id=c.id, nome=c.nome) for c in categorias]
+
+
+class NeroTransactionUpdateIn(BaseModel):
+    descricao: str | None = None
+    valor: float | None = None
+    categoria_id: int | None = None
+
+
+@router.put("/nero/transactions/{transaction_id}", response_model=schemas.TransactionOut)
+def editar_transacao_do_nero(
+    transaction_id: int, payload: NeroTransactionUpdateIn, db: DbSession = Depends(get_db)
+):
+    transacao = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+    if not transacao:
+        raise HTTPException(404, "Transação não encontrada")
+    dados = payload.model_dump(exclude_unset=True)
+    for campo, valor in dados.items():
+        setattr(transacao, campo, valor)
+    db.commit()
+    db.refresh(transacao)
+    return _to_out(transacao)
+
+
+@router.delete("/nero/transactions/{transaction_id}", status_code=204)
+def apagar_transacao_do_nero(transaction_id: int, db: DbSession = Depends(get_db)):
+    transacao = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+    if not transacao:
+        raise HTTPException(404, "Transação não encontrada")
+    db.delete(transacao)
+    db.commit()
