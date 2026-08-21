@@ -1,14 +1,10 @@
-import datetime as dt
-
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy.orm import Session as DbSession
 
 from .. import models, schemas
 from ..auth import get_current_user
-from ..categorization import categoria_para_descricao
 from ..database import get_db
-from ..import_parsers import parse_csv, parse_ofx, parse_pdf
-from ..timezone_utils import hoje
+from ..services.import_service import importar_extrato
 
 router = APIRouter(
     prefix="/accounts", tags=["accounts"], dependencies=[Depends(get_current_user)]
@@ -55,55 +51,5 @@ async def import_extrato(account_id: int, file: UploadFile, db: DbSession = Depe
     account = db.query(models.Account).filter(models.Account.id == account_id).first()
     if not account:
         raise HTTPException(404, "Conta não encontrada")
-
-    nome = (file.filename or "").lower()
     conteudo = await file.read()
-
-    try:
-        if nome.endswith(".ofx") or nome.endswith(".qfx"):
-            transacoes = parse_ofx(conteudo, account_id)
-        elif nome.endswith(".csv"):
-            transacoes = parse_csv(conteudo, account_id)
-        elif nome.endswith(".pdf"):
-            transacoes = parse_pdf(conteudo, account_id)
-        else:
-            raise HTTPException(
-                400, "Formato não suportado. Envie um arquivo .csv, .ofx, .qfx ou .pdf."
-            )
-    except ValueError as exc:
-        raise HTTPException(400, str(exc))
-
-    importadas = 0
-    duplicadas = 0
-    for t in transacoes:
-        existente = (
-            db.query(models.Transaction)
-            .filter(models.Transaction.external_id == t.external_id)
-            .first()
-        )
-        if existente:
-            duplicadas += 1
-            continue
-        categoria = categoria_para_descricao(db, t.descricao)
-        db.add(
-            models.Transaction(
-                data=dt.date.fromisoformat(t.data),
-                descricao=t.descricao,
-                categoria_id=categoria.id if categoria else None,
-                valor=t.valor,
-                tipo=t.tipo,
-                conta_id=account_id,
-                origem="import",
-                external_id=t.external_id,
-            )
-        )
-        importadas += 1
-
-    account.ultima_sync = hoje().isoformat()
-    db.commit()
-
-    return schemas.ImportResultOut(
-        importadas=importadas,
-        duplicadas=duplicadas,
-        ignoradas=len(transacoes) - importadas - duplicadas,
-    )
+    return importar_extrato(db, account, file.filename or "", conteudo)
