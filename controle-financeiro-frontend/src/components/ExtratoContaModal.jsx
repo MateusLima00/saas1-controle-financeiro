@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Upload } from "lucide-react";
 import Modal from "./Modal";
 import { api } from "../api/client";
 import { formatDateShort, formatCurrency } from "../utils/format";
@@ -31,7 +32,7 @@ const PERIODOS = [
   { valor: "tudo", label: "Todo o histórico" },
 ];
 
-export default function ExtratoContaModal({ conta, onFechar }) {
+export default function ExtratoContaModal({ conta, onFechar, onImportar }) {
   const [periodo, setPeriodo] = useState("mes-atual");
   const [de, setDe] = useState(paraIso(primeiroDiaDoMes(new Date())));
   const [ate, setAte] = useState(paraIso(ultimoDiaDoMes(new Date())));
@@ -116,6 +117,16 @@ export default function ExtratoContaModal({ conta, onFechar }) {
           Total do período:{" "}
           <span className={total < 0 ? "text-danger" : "text-success"}>{formatCurrency(total)}</span>
         </span>
+
+        {onImportar && (
+          <button
+            onClick={onImportar}
+            className="text-sm px-3 py-1.5 rounded-[var(--radius-control)] border border-border hover:bg-surface-2 transition-colors flex items-center gap-1.5"
+          >
+            <Upload size={14} />
+            Importar CSV/OFX
+          </button>
+        )}
       </div>
 
       {carregando && <div className="text-sm text-text-muted py-4">Carregando...</div>}

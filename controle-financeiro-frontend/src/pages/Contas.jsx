@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2, Landmark, RefreshCw, Upload, ScrollText } from "lucide-react";
+import { Plus, Trash2, Landmark, RefreshCw, Upload } from "lucide-react";
 import { PluggyConnect } from "react-pluggy-connect";
 import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -279,7 +279,15 @@ export default function Contas() {
         onCancelar={() => setParaExcluir(null)}
       />
 
-      <ExtratoContaModal conta={contaExtrato} onFechar={() => setContaExtrato(null)} />
+      <ExtratoContaModal
+        conta={contaExtrato}
+        onFechar={() => setContaExtrato(null)}
+        onImportar={() => {
+          const contaId = contaExtrato.id;
+          setContaExtrato(null);
+          abrirSeletorImportacao(contaId);
+        }}
+      />
 
       {contas.length === 0 ? (
         <div className="bg-surface rounded-card border border-border border-dashed p-8 flex flex-col items-center text-center gap-2">
@@ -312,18 +320,10 @@ export default function Contas() {
                   </span>
                   <button
                     onClick={() => setContaExtrato(conta)}
-                    aria-label={`Ver extrato de ${conta.banco}`}
-                    className="text-text-muted hover:text-accent"
-                    title="Ver extrato"
-                  >
-                    <ScrollText size={15} />
-                  </button>
-                  <button
-                    onClick={() => abrirSeletorImportacao(conta.id)}
                     disabled={importandoId === conta.id}
-                    aria-label={`Importar extrato para ${conta.banco}`}
+                    aria-label={`Ver extrato de ${conta.banco}`}
                     className="text-text-muted hover:text-accent disabled:opacity-50"
-                    title="Importar extrato (CSV/OFX)"
+                    title="Ver extrato / importar"
                   >
                     <Upload size={15} />
                   </button>
