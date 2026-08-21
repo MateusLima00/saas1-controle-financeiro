@@ -51,7 +51,7 @@ def buscar_link_de_login(imap_email: str, imap_senha_app: str) -> str:
             imap.login(imap_email, imap_senha_app)
             imap.select("INBOX")
             hoje_imap = dt.datetime.now().strftime("%d-%b-%Y")
-            _, dados = imap.search(None, f'SINCE {hoje_imap} FROM "auth0"')
+            _, dados = imap.search(None, f'SINCE {hoje_imap} FROM "pluggy.ai"')
             ids = dados[0].split()
             for msg_id in reversed(ids):
                 _, msg_dados = imap.fetch(msg_id, "(RFC822)")
