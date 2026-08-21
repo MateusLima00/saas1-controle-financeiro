@@ -3,6 +3,7 @@ tanto pelo endpoint `POST /accounts/sync` (botão "atualizar agora") quanto
 pelo job diário automático (`app/scheduler.py`)."""
 import datetime as dt
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
 from .. import models
@@ -40,16 +41,36 @@ def distinct_item_ids(db: DbSession) -> list[str]:
     return [item_id for (item_id,) in linhas]
 
 
-def _upsert_account(db: DbSession, item_id: str, conta_pluggy: dict) -> models.Account:
-    pluggy_account_id = conta_pluggy["id"]
+def _find_or_create_account(db: DbSession, pluggy_account_id: str) -> models.Account:
     account = (
         db.query(models.Account)
         .filter(models.Account.pluggy_account_id == pluggy_account_id)
         .first()
     )
-    if not account:
-        account = models.Account(pluggy_account_id=pluggy_account_id, origem="pluggy")
-        db.add(account)
+    if account:
+        return account
+
+    account = models.Account(pluggy_account_id=pluggy_account_id, origem="pluggy")
+    db.add(account)
+    try:
+        with db.begin_nested():
+            db.flush()
+    except IntegrityError:
+        # Outra chamada concorrente (ex: onSuccess do widget + sync manual ao
+        # mesmo tempo) criou essa mesma conta entre nosso SELECT e o INSERT.
+        # O savepoint (begin_nested) isola esse conflito sem derrubar as
+        # outras contas já sincronizadas nesta mesma transação.
+        account = (
+            db.query(models.Account)
+            .filter(models.Account.pluggy_account_id == pluggy_account_id)
+            .first()
+        )
+    return account
+
+
+def _upsert_account(db: DbSession, item_id: str, conta_pluggy: dict) -> models.Account:
+    pluggy_account_id = conta_pluggy["id"]
+    account = _find_or_create_account(db, pluggy_account_id)
 
     subtype = conta_pluggy.get("subtype") or ""
     account.banco = conta_pluggy.get("name") or account.banco or "Conta Pluggy"
