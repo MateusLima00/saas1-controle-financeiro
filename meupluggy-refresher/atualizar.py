@@ -6,6 +6,7 @@ Ver README.md deste serviço pra explicação completa de por que isso existe
 isolado (não faz parte do backend principal do Saas1)."""
 from __future__ import annotations
 
+import datetime as dt
 import email
 import imaplib
 import logging
@@ -49,7 +50,8 @@ def buscar_link_de_login(imap_email: str, imap_senha_app: str) -> str:
         try:
             imap.login(imap_email, imap_senha_app)
             imap.select("INBOX")
-            _, dados = imap.search(None, 'UNSEEN FROM "auth0"')
+            hoje_imap = dt.datetime.now().strftime("%d-%b-%Y")
+            _, dados = imap.search(None, f'SINCE {hoje_imap} FROM "auth0"')
             ids = dados[0].split()
             for msg_id in reversed(ids):
                 _, msg_dados = imap.fetch(msg_id, "(RFC822)")
