@@ -79,7 +79,7 @@ def _chamar_callback_do_saas1() -> None:
         resp = httpx.post(
             f"{SAAS1_API_URL.rstrip('/')}/integrations/meupluggy-refresh-callback",
             headers={"Authorization": f"Bearer {SAAS1_CALLBACK_TOKEN}"},
-            timeout=30,
+            timeout=90,  # o backend principal pode estar "dormindo" (free tier), cold start ~50s+
         )
         logger.info("Callback pro Saas1: %s", resp.status_code)
     except Exception:

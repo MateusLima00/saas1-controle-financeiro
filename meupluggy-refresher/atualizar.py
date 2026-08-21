@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 import email
+import email.utils
 import imaplib
 import logging
 import re
@@ -42,7 +43,16 @@ def _extrair_link_de_login(corpo: str) -> str | None:
     return match.group(0).rstrip('"\'<>)')
 
 
-def buscar_link_de_login(imap_email: str, imap_senha_app: str) -> str:
+def buscar_link_de_login(imap_email: str, imap_senha_app: str, enviado_em: dt.datetime) -> str:
+    """Só aceita email cuja data (header `Date`) seja posterior a
+    `enviado_em` (momento em que clicamos "Enviar" NESTA execução).
+
+    Sem isso, a busca por SINCE+FROM pega QUALQUER email de hoje do
+    pluggy.ai — incluindo links mágicos de tentativas antigas (cada
+    "Enviar" gera um link novo, com state/nonce diferente; um link velho
+    não autentica, só manda de volta pro login do Auth0 silenciosamente).
+    """
+    margem = dt.timedelta(seconds=15)  # tolerância pra diferença de relógio
     prazo = time.time() + LOGIN_TIMEOUT_SEGUNDOS
     logger.info("Esperando o email de login chegar em %s...", imap_email)
     while time.time() < prazo:
@@ -56,6 +66,11 @@ def buscar_link_de_login(imap_email: str, imap_senha_app: str) -> str:
             for msg_id in reversed(ids):
                 _, msg_dados = imap.fetch(msg_id, "(RFC822)")
                 msg = email.message_from_bytes(msg_dados[0][1])
+                data_msg = email.utils.parsedate_to_datetime(msg["Date"])
+                if data_msg.tzinfo is None:
+                    data_msg = data_msg.replace(tzinfo=dt.timezone.utc)
+                if data_msg < enviado_em - margem:
+                    continue  # email antigo, de uma tentativa anterior
                 link = _extrair_link_de_login(_corpo_texto(msg))
                 if link:
                     imap.store(msg_id, "+FLAGS", "\\Seen")
@@ -86,10 +101,11 @@ def logar(page: Page, meu_pluggy_email: str, imap_email: str, imap_senha_app: st
     _clicar_resiliente(page, "Entrar")
     page.wait_for_selector('input[type="email"]', timeout=15000)
     page.fill('input[type="email"]', meu_pluggy_email)
+    enviado_em = dt.datetime.now(dt.timezone.utc)
     _clicar_resiliente(page, "Enviar")
     page.wait_for_timeout(1500)
 
-    link = buscar_link_de_login(imap_email, imap_senha_app)
+    link = buscar_link_de_login(imap_email, imap_senha_app, enviado_em)
     logger.info("Link de login encontrado, autenticando...")
     page.goto(link, wait_until="domcontentloaded", timeout=60000)
     page.wait_for_timeout(3000)
