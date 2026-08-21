@@ -14,8 +14,30 @@ export class ApiError extends Error {
   }
 }
 
+// Deploys no Render trocam de instância em ~1min (o serviço fica sem
+// processo escutando por uns segundos nessa janela) — o proxy deles
+// responde 502/503/504 sem corpo JSON nesse intervalo, e uma falha de
+// rede momentânea também joga o fetch numa exception. Um retry único
+// depois de um instante cobre esses casos transitórios sem mascarar
+// erros de negócio de verdade (4xx continuam falhando na hora).
+async function fetchComRetry(url, options, tentativasRestantes = 1) {
+  let resp;
+  try {
+    resp = await fetch(url, options);
+  } catch (err) {
+    if (tentativasRestantes <= 0) throw err;
+    await new Promise((r) => setTimeout(r, 1500));
+    return fetchComRetry(url, options, tentativasRestantes - 1);
+  }
+  if ([502, 503, 504].includes(resp.status) && tentativasRestantes > 0) {
+    await new Promise((r) => setTimeout(r, 1500));
+    return fetchComRetry(url, options, tentativasRestantes - 1);
+  }
+  return resp;
+}
+
 async function request(path, { method = "GET", body } = {}) {
-  const resp = await fetch(`${BASE_URL}${path}`, {
+  const resp = await fetchComRetry(`${BASE_URL}${path}`, {
     method,
     credentials: "include",
     headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
@@ -41,7 +63,7 @@ async function upload(path, file) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const resp = await fetch(`${BASE_URL}${path}`, {
+  const resp = await fetchComRetry(`${BASE_URL}${path}`, {
     method: "POST",
     credentials: "include",
     body: formData,
