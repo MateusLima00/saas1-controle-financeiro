@@ -192,17 +192,29 @@ _PDF_LINHA_SALDO_RE = re.compile(
     r"saldo\s+(do\s+dia|ao\s+final|final|total|dispon[íi]vel|bloqueado)", re.IGNORECASE
 )
 
+# Formato Caixa Econômica ("Extrato por período"): cada linha já traz
+# data+hora+nº doc+histórico+valor+saldo, sem cabeçalho de dia separado, e
+# usa sufixo "C"/"D" (crédito/débito) em vez de sinal ou "R$". Ex:
+# "21/08/2026 - 00:19:20  210019  CRED PIX CHAVE  Mateus Costa de Li  ***.535.613***  115,06 C  440,06 C"
+_CAIXA_LINHA_RE = re.compile(
+    r"^(\d{2}/\d{2}/\d{4})\s*-\s*\d{2}:\d{2}:\d{2}\s+\d+\s+(.*?)\s+([\d.,]+)\s*([CD])\s+[\d.,]+\s*[CD]\s*$"
+)
+
 
 def parse_pdf(conteudo: bytes, conta_id: int) -> list[ParsedTransaction]:
     """PDF de extrato bancário — bem menos confiável que CSV/OFX (texto
     extraído de tabela, nomes que quebram linha viram descrição truncada),
-    por isso só use se o banco não oferecer CSV/OFX. Estratégia: cada
-    página vira uma lista de linhas de texto; linhas de cabeçalho de dia
-    ("D de mês de AAAA ... Saldo do dia: ...") atualizam a data corrente
-    mas não geram transação; qualquer outra linha terminando em "R$ valor"
-    vira uma transação, com a data corrente e o resto da linha como
-    descrição. Linhas de saldo consolidado (total/disponível/bloqueado)
-    são explicitamente ignoradas pra não entrar como transação fantasma."""
+    por isso só use se o banco não oferecer CSV/OFX. Dois formatos
+    reconhecidos:
+    - Caixa ("Extrato por período"): cada linha já tem data+hora+histórico+
+      valor+sufixo C/D — `_CAIXA_LINHA_RE` casa direto, sem precisar de
+      cabeçalho de dia.
+    - Inter/PicPay/genérico: cada página vira uma lista de linhas de
+      texto; linhas de cabeçalho de dia ("D de mês de AAAA ... Saldo do
+      dia: ...") atualizam a data corrente mas não geram transação;
+      qualquer outra linha terminando em "R$ valor" vira uma transação,
+      com a data corrente e o resto da linha como descrição. Linhas de
+      saldo consolidado (total/disponível/bloqueado) são ignoradas."""
     try:
         import pdfplumber
     except ImportError as exc:
@@ -231,6 +243,33 @@ def parse_pdf(conteudo: bytes, conta_id: int) -> list[ParsedTransaction]:
             for linha in texto.splitlines():
                 linha = linha.strip()
                 if not linha:
+                    continue
+
+                m_caixa = _CAIXA_LINHA_RE.match(linha)
+                if m_caixa:
+                    data_str, descricao_bruta, valor_bruto, sinal_cd = m_caixa.groups()
+                    dia, mes, ano = data_str.split("/")
+                    data_iso = f"{ano}-{mes}-{dia}"
+                    try:
+                        valor = _parse_valor_br_ou_us(valor_bruto)
+                    except ValueError:
+                        continue
+                    if valor == 0:
+                        # Linha "SALDO DIA" (marcador de dia, não transação
+                        # de verdade) sempre vem com valor 0,00.
+                        continue
+                    valor = -abs(valor) if sinal_cd == "D" else abs(valor)
+                    descricao = _limpar_descricao(descricao_bruta)
+                    tipo = "credit" if valor >= 0 else "debit"
+                    resultado.append(
+                        ParsedTransaction(
+                            data=data_iso,
+                            descricao=descricao or "Sem descrição",
+                            valor=valor,
+                            tipo=tipo,
+                            external_id=_make_external_id(conta_id, data_iso, descricao, valor),
+                        )
+                    )
                     continue
 
                 m_data = _PDF_DATA_CABECALHO_RE.search(linha)

@@ -10,6 +10,7 @@ from ..categorization import categoria_para_descricao
 from ..database import get_db
 from ..services.import_service import importar_extrato
 from ..timezone_utils import hoje
+from .dashboard import gastos_por_categoria, resumo
 from .transactions import _to_out
 
 router = APIRouter(
@@ -69,3 +70,58 @@ async def importar_extrato_do_nero(account_id: int, file: UploadFile, db: DbSess
         raise HTTPException(404, "Conta não encontrada")
     conteudo = await file.read()
     return importar_extrato(db, account, file.filename or "", conteudo)
+
+
+class NeroContaResumoOut(BaseModel):
+    banco: str
+    tipo: str
+    saldo: float
+
+
+class NeroTransacaoResumoOut(BaseModel):
+    data: dt.date
+    descricao: str
+    valor: float
+    tipo: str
+    categoria: str | None = None
+    conta: str | None = None
+
+
+class NeroResumoOut(BaseModel):
+    saldoTotal: float
+    gastoMes: float
+    gastoMesAnterior: float
+    contas: list[NeroContaResumoOut]
+    gastosPorCategoria: list[schemas.GastoPorCategoriaOut]
+    ultimasTransacoes: list[NeroTransacaoResumoOut]
+
+
+@router.get("/nero/resumo", response_model=NeroResumoOut)
+def resumo_para_nero(db: DbSession = Depends(get_db)):
+    """Dado real do Saas1 (não o controle paralelo do Nero) — pro Nero
+    responder no Telegram com números de verdade quando perguntarem
+    "qual meu saldo" / "quanto gastei" etc."""
+    resumo_geral = resumo(db)
+    categorias = gastos_por_categoria(db)
+    contas = db.query(models.Account).all()
+    ultimas = (
+        db.query(models.Transaction).order_by(models.Transaction.data.desc(), models.Transaction.id.desc()).limit(8).all()
+    )
+    return NeroResumoOut(
+        saldoTotal=resumo_geral.saldoTotal,
+        gastoMes=resumo_geral.gastoMes,
+        gastoMesAnterior=resumo_geral.gastoMesAnterior,
+        contas=[NeroContaResumoOut(banco=c.banco, tipo=c.tipo, saldo=c.saldo) for c in contas],
+        gastosPorCategoria=categorias,
+        ultimasTransacoes=[
+            NeroTransacaoResumoOut(
+                data=t.data,
+                descricao=t.descricao,
+                valor=t.valor,
+                tipo=t.tipo,
+                categoria=t.categoria.nome if t.categoria else None,
+                conta=t.conta.banco if t.conta else None,
+            )
+            for t in ultimas
+        ],
+    )
