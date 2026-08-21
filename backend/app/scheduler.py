@@ -26,7 +26,7 @@ import httpx
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from .database import SessionLocal
-from .services import notifications, pluggy_client, pluggy_sync
+from .services import notifications, pluggy_sync
 
 logger = logging.getLogger(__name__)
 
@@ -45,24 +45,19 @@ def keep_alive_ping() -> None:
 
 
 def _sync_all_items(db, *, log_prefix: str) -> dict[str, Exception | None]:
-    """Sincroniza todo item conectado. Retorna {item_id: erro_ou_None}.
-    Não notifica nada — quem chama decide o que fazer com falhas."""
-    resultados: dict[str, Exception | None] = {}
-    item_ids = pluggy_sync.distinct_item_ids(db)
-    if not item_ids:
+    """Sincroniza todo item conectado (todos os bancos). Retorna
+    {item_id: erro_ou_None}. Não notifica nada — quem chama decide o que
+    fazer com falhas."""
+    resultados = pluggy_sync.sync_all_items(db)
+    if not resultados:
         logger.info("%s: nenhum item conectado ainda.", log_prefix)
         return resultados
 
-    for item_id in item_ids:
-        try:
-            contas = pluggy_sync.sync_item(db, item_id)
-            db.commit()
-            logger.info("%s: item %s ok (%d conta(s)).", log_prefix, item_id, contas)
-            resultados[item_id] = None
-        except pluggy_client.PluggyError as exc:
-            db.rollback()
-            logger.error("%s: falhou pro item %s: %s", log_prefix, item_id, exc)
-            resultados[item_id] = exc
+    for item_id, erro in resultados.items():
+        if erro is None:
+            logger.info("%s: item %s ok.", log_prefix, item_id)
+        else:
+            logger.error("%s: falhou pro item %s: %s", log_prefix, item_id, erro)
 
     return resultados
 

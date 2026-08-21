@@ -41,6 +41,26 @@ def distinct_item_ids(db: DbSession) -> list[str]:
     return [item_id for (item_id,) in linhas]
 
 
+def sync_all_items(db: DbSession) -> dict[str, Exception | None]:
+    """Sincroniza TODOS os itens já conectados (todos os bancos, não só
+    um). Usada tanto pelo botão "Atualizar agora" (sem itemId no corpo)
+    quanto pelos jobs em background (`app/scheduler.py`) — sem isso, uma
+    conta com vários bancos conectados só teria o primeiro item
+    atualizado a cada sync. Cada item é commitado (ou revertido)
+    independentemente, então a falha de um banco não afeta os outros.
+    Retorna {item_id: erro_ou_None}."""
+    resultados: dict[str, Exception | None] = {}
+    for item_id in distinct_item_ids(db):
+        try:
+            sync_item(db, item_id)
+            db.commit()
+            resultados[item_id] = None
+        except pluggy_client.PluggyError as exc:
+            db.rollback()
+            resultados[item_id] = exc
+    return resultados
+
+
 def _preencher_campos(account: models.Account, item_id: str, conta_pluggy: dict) -> None:
     subtype = conta_pluggy.get("subtype") or ""
     account.banco = conta_pluggy.get("name") or account.banco or "Conta Pluggy"

@@ -94,37 +94,52 @@ def sync_accounts(payload: schemas.SyncRequest | None = None, db: DbSession = De
 
     - Se `itemId` for passado no corpo, é porque o Pluggy Connect Widget
       acabou de conectar um banco novo (ou re-autenticar um existente) —
-      usamos esse item.
-    - Sem `itemId`, sincroniza o item já vinculado a alguma conta local
-      (clique em "atualizar agora" na tela Contas).
+      sincroniza só esse item.
+    - Sem `itemId` (clique em "atualizar agora" na tela Contas), sincroniza
+      TODOS os itens já conectados — não só o primeiro que aparecer, senão
+      quem tem mais de um banco conectado nunca vê os outros atualizarem.
     - Sem nenhum item conectado ainda, orienta a conectar via widget
       primeiro (endpoint `/accounts/connect-token`)."""
     _require_pluggy_configurado()
 
     item_id = payload.item_id if payload else None
-    if not item_id:
-        conta_existente = (
-            db.query(models.Account)
-            .filter(models.Account.pluggy_item_id.isnot(None))
-            .first()
+    if item_id:
+        try:
+            contas_atualizadas = pluggy_sync.sync_item(db, item_id)
+            db.commit()
+        except pluggy_client.PluggyError as exc:
+            db.rollback()
+            raise HTTPException(502, f"Falha ao sincronizar com a Pluggy: {exc}")
+        return schemas.SyncResultOut(
+            status="ok",
+            mensagem=f"{contas_atualizadas} conta(s) sincronizada(s) via Pluggy.",
+            contas_atualizadas=contas_atualizadas,
         )
-        if not conta_existente:
-            raise HTTPException(
-                400,
-                "Nenhuma conta conectada à Pluggy ainda. Conecte um banco pelo "
-                "Pluggy Connect Widget (GET connect-token) antes de sincronizar.",
-            )
-        item_id = conta_existente.pluggy_item_id
 
-    try:
-        contas_atualizadas = pluggy_sync.sync_item(db, item_id)
-        db.commit()
-    except pluggy_client.PluggyError as exc:
-        raise HTTPException(502, f"Falha ao sincronizar com a Pluggy: {exc}")
+    item_ids = pluggy_sync.distinct_item_ids(db)
+    if not item_ids:
+        raise HTTPException(
+            400,
+            "Nenhuma conta conectada à Pluggy ainda. Conecte um banco pelo "
+            "Pluggy Connect Widget (GET connect-token) antes de sincronizar.",
+        )
+
+    resultados = pluggy_sync.sync_all_items(db)
+    falhas = {iid: err for iid, err in resultados.items() if err is not None}
+    contas_atualizadas = (
+        db.query(models.Account).filter(models.Account.pluggy_item_id.in_(item_ids)).count()
+    )
+    if falhas and len(falhas) == len(resultados):
+        primeiro_erro = next(iter(falhas.values()))
+        raise HTTPException(502, f"Falha ao sincronizar com a Pluggy: {primeiro_erro}")
+
+    mensagem = f"{contas_atualizadas} conta(s) sincronizada(s) via Pluggy ({len(item_ids)} banco(s))."
+    if falhas:
+        mensagem += f" {len(falhas)} banco(s) falharam e serão tentados de novo automaticamente."
 
     return schemas.SyncResultOut(
-        status="ok",
-        mensagem=f"{contas_atualizadas} conta(s) sincronizada(s) via Pluggy.",
+        status="ok" if not falhas else "parcial",
+        mensagem=mensagem,
         contas_atualizadas=contas_atualizadas,
     )
 
