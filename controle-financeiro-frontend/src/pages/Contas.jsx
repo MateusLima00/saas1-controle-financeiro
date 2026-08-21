@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2, Landmark, RefreshCw, Upload } from "lucide-react";
+import { Plus, Trash2, Landmark, RefreshCw, Upload, ScrollText } from "lucide-react";
 import { PluggyConnect } from "react-pluggy-connect";
 import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
+import ExtratoContaModal from "../components/ExtratoContaModal";
 import { useToast } from "../components/ToastProvider";
 import { formatCurrency } from "../utils/format";
 import { api } from "../api/client";
@@ -33,6 +34,7 @@ export default function Contas() {
   const [modalAberto, setModalAberto] = useState(false);
   const [nova, setNova] = useState({ banco: "", tipo: "checking", saldo: "" });
   const [paraExcluir, setParaExcluir] = useState(null);
+  const [contaExtrato, setContaExtrato] = useState(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [importandoId, setImportandoId] = useState(null);
   const [connectToken, setConnectToken] = useState(null);
@@ -268,10 +270,16 @@ export default function Contas() {
 
       <ConfirmDialog
         aberto={!!paraExcluir}
-        mensagem={`Tem certeza que quer excluir a conta "${paraExcluir?.banco}"? Essa ação não pode ser desfeita.`}
+        mensagem={
+          paraExcluir?.origem === "manual"
+            ? `Tem certeza que quer excluir a conta "${paraExcluir?.banco}"? Essa ação não pode ser desfeita.`
+            : `Tem certeza que quer excluir a conta "${paraExcluir?.banco}"? Isso também desconecta o banco na Pluggy — vai precisar reconectar pelo widget se quiser sincronizar de novo.`
+        }
         onConfirmar={confirmarExclusao}
         onCancelar={() => setParaExcluir(null)}
       />
+
+      <ExtratoContaModal conta={contaExtrato} onFechar={() => setContaExtrato(null)} />
 
       {contas.length === 0 ? (
         <div className="bg-surface rounded-card border border-border border-dashed p-8 flex flex-col items-center text-center gap-2">
@@ -303,6 +311,14 @@ export default function Contas() {
                     {status.texto}
                   </span>
                   <button
+                    onClick={() => setContaExtrato(conta)}
+                    aria-label={`Ver extrato de ${conta.banco}`}
+                    className="text-text-muted hover:text-accent"
+                    title="Ver extrato"
+                  >
+                    <ScrollText size={15} />
+                  </button>
+                  <button
                     onClick={() => abrirSeletorImportacao(conta.id)}
                     disabled={importandoId === conta.id}
                     aria-label={`Importar extrato para ${conta.banco}`}
@@ -311,15 +327,14 @@ export default function Contas() {
                   >
                     <Upload size={15} />
                   </button>
-                  {conta.origem === "manual" && (
-                    <button
-                      onClick={() => setParaExcluir({ id: conta.id, banco: conta.banco })}
-                      aria-label={`Remover ${conta.banco}`}
-                      className="text-text-muted hover:text-danger"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setParaExcluir({ id: conta.id, banco: conta.banco, origem: conta.origem })}
+                    aria-label={`Remover ${conta.banco}`}
+                    className="text-text-muted hover:text-danger"
+                    title="Excluir conta"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </div>
             );

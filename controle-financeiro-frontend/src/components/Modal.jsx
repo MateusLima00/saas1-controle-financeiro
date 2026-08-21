@@ -9,7 +9,7 @@ import { X } from "lucide-react";
 // tela toda, com fundo escurecido/desfocado atrás. Fecha ao clicar fora,
 // apertar Esc ou no X do cabeçalho.
 // -----------------------------------------------------------------------
-export default function Modal({ aberto, titulo, onFechar, children }) {
+export default function Modal({ aberto, titulo, onFechar, children, largo = false }) {
   // Fecha com a tecla Esc
   useEffect(() => {
     if (!aberto) return;
@@ -29,7 +29,7 @@ export default function Modal({ aberto, titulo, onFechar, children }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-surface border border-border rounded-card shadow-2xl shadow-black/40 animate-[popIn_.15s_ease-out]"
+        className={`w-full ${largo ? "max-w-3xl" : "max-w-lg"} bg-surface border border-border rounded-card shadow-2xl shadow-black/40 animate-[popIn_.15s_ease-out]`}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-sm font-semibold">{titulo}</h2>
