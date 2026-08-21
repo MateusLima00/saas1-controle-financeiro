@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2, Landmark, RefreshCw, Upload } from "lucide-react";
+import { Plus, Trash2, Pencil, Landmark, RefreshCw, Upload } from "lucide-react";
 import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ExtratoContaModal from "../components/ExtratoContaModal";
@@ -27,6 +27,8 @@ export default function Contas() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [modalAberto, setModalAberto] = useState(false);
+  const [modo, setModo] = useState("criar"); // "criar" | "editar"
+  const [editandoId, setEditandoId] = useState(null);
   const [nova, setNova] = useState({ banco: "", tipo: "checking", saldo: "" });
   const [paraExcluir, setParaExcluir] = useState(null);
   const [contaExtrato, setContaExtrato] = useState(null);
@@ -60,25 +62,48 @@ export default function Contas() {
     }
   }
 
-  async function adicionarContaManual(e) {
+  function abrirCriar() {
+    setModo("criar");
+    setNova({ banco: "", tipo: "checking", saldo: "" });
+    setModalAberto(true);
+  }
+
+  function abrirEditar(conta) {
+    setModo("editar");
+    setEditandoId(conta.id);
+    setNova({ banco: conta.banco, tipo: conta.tipo, saldo: String(conta.saldo) });
+    setModalAberto(true);
+  }
+
+  async function salvarConta(e) {
     e.preventDefault();
     if (!nova.banco) return;
 
     try {
-      const conta = await api.post("/accounts", {
-        banco: nova.banco,
-        tipo: nova.tipo,
-        saldo: Number(nova.saldo) || 0,
-        status: "manual",
-        ultimaSync: "manual",
-        origem: "manual",
-      });
-      setContas((atual) => [...atual, conta]);
-      mostrarToast(`Conta "${nova.banco}" adicionada.`);
+      if (modo === "criar") {
+        const conta = await api.post("/accounts", {
+          banco: nova.banco,
+          tipo: nova.tipo,
+          saldo: Number(nova.saldo) || 0,
+          status: "manual",
+          ultimaSync: "manual",
+          origem: "manual",
+        });
+        setContas((atual) => [...atual, conta]);
+        mostrarToast(`Conta "${nova.banco}" adicionada.`);
+      } else {
+        const conta = await api.put(`/accounts/${editandoId}`, {
+          banco: nova.banco,
+          tipo: nova.tipo,
+          saldo: Number(nova.saldo) || 0,
+        });
+        setContas((atual) => atual.map((c) => (c.id === editandoId ? conta : c)));
+        mostrarToast(`Conta "${nova.banco}" atualizada.`);
+      }
       setNova({ banco: "", tipo: "checking", saldo: "" });
       setModalAberto(false);
     } catch (err) {
-      mostrarToast(err.message || "Não foi possível adicionar a conta.", "erro");
+      mostrarToast(err.message || "Não foi possível salvar a conta.", "erro");
     }
   }
 
@@ -152,7 +177,7 @@ export default function Contas() {
             {atualizando ? "Atualizando..." : "Atualizar lista"}
           </button>
           <button
-            onClick={() => setModalAberto(true)}
+            onClick={abrirCriar}
             className="text-sm px-3 py-1.5 rounded-[var(--radius-control)] border border-border hover:bg-surface-2 transition-colors flex items-center gap-1"
           >
             <Plus size={14} />
@@ -161,8 +186,12 @@ export default function Contas() {
         </div>
       </div>
 
-      <Modal aberto={modalAberto} titulo="Nova conta" onFechar={() => setModalAberto(false)}>
-        <form onSubmit={adicionarContaManual} className="flex flex-col gap-3">
+      <Modal
+        aberto={modalAberto}
+        titulo={modo === "criar" ? "Nova conta" : "Editar conta"}
+        onFechar={() => setModalAberto(false)}
+      >
+        <form onSubmit={salvarConta} className="flex flex-col gap-3">
           <input
             type="text"
             placeholder="Nome (ex: Nubank, Dinheiro em espécie)"
@@ -198,7 +227,7 @@ export default function Contas() {
               Cancelar
             </button>
             <button type="submit" className="bg-accent text-white rounded-[var(--radius-control)] px-4 py-1.5 text-sm">
-              Adicionar
+              {modo === "criar" ? "Adicionar" : "Salvar alterações"}
             </button>
           </div>
         </form>
@@ -225,7 +254,7 @@ export default function Contas() {
         <div className="bg-surface rounded-card border border-border border-dashed p-8 flex flex-col items-center text-center gap-2">
           <Landmark size={24} className="text-text-muted" />
           <p className="text-sm text-text-secondary">Nenhuma conta cadastrada ainda.</p>
-          <button onClick={() => setModalAberto(true)} className="text-xs text-accent mt-1">
+          <button onClick={abrirCriar} className="text-xs text-accent mt-1">
             Adicionar uma conta
           </button>
         </div>
@@ -258,6 +287,14 @@ export default function Contas() {
                     title="Ver extrato / importar"
                   >
                     <Upload size={15} />
+                  </button>
+                  <button
+                    onClick={() => abrirEditar(conta)}
+                    aria-label={`Editar ${conta.banco}`}
+                    className="text-text-muted hover:text-text-primary"
+                    title="Editar conta"
+                  >
+                    <Pencil size={15} />
                   </button>
                   <button
                     onClick={() => setParaExcluir({ id: conta.id, banco: conta.banco })}
