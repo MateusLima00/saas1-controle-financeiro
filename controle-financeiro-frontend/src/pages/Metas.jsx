@@ -240,7 +240,7 @@ export default function Metas() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {metas.map((meta) => (
             <div key={meta.id} className="bg-surface rounded-card border border-border p-4">
               <div className="flex items-center justify-between mb-3">

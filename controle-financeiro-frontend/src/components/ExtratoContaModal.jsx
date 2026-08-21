@@ -134,7 +134,7 @@ export default function ExtratoContaModal({ conta, onFechar, onImportar }) {
 
       {!carregando && !erro && (
         <div className="border border-border rounded-lg overflow-hidden">
-          <div className="max-h-[50vh] overflow-y-auto">
+          <div className="max-h-[50vh] overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-surface z-10">
                 <tr className="text-text-secondary text-xs border-b border-border">

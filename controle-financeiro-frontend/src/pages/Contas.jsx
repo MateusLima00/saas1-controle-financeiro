@@ -187,9 +187,9 @@ export default function Contas() {
         onChange={importarArquivo}
       />
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
         <h1 className="text-lg font-medium">Contas conectadas</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => sincronizarAgora()}
             disabled={sincronizando}

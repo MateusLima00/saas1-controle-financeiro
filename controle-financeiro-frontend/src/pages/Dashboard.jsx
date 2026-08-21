@@ -133,7 +133,7 @@ export default function Dashboard() {
       </div>
 
       {/* Cards de resumo */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <MetricCard
           label="Saldo total"
           value={formatCurrency(resumo.saldoTotal)}
@@ -169,7 +169,7 @@ export default function Dashboard() {
       </div>
 
       {/* Transações + gráfico lado a lado */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <Link to="/extrato" className="bg-surface rounded-card border border-border p-4 hover:border-accent/50 transition-colors">
           <div className="text-xs text-text-secondary mb-2">Últimas transações</div>
           <ListaTransacoes transacoes={ultimasTransacoes} />
@@ -187,7 +187,7 @@ export default function Dashboard() {
           <div className="text-xs text-text-secondary">Metas e planos</div>
           <Link to="/metas" className="text-xs text-accent">Ver todas</Link>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {metas.slice(0, 2).map((meta) => (
             <div key={meta.id} className="bg-surface-2 rounded-[var(--radius-control)] p-3">
               <div className="flex items-center gap-2 mb-2">
@@ -203,7 +203,7 @@ export default function Dashboard() {
       </div>
 
       {/* Investimentos + Assinaturas lado a lado, resumidos */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Link to="/investimentos" className="bg-surface rounded-card border border-border p-4 hover:border-accent/50 transition-colors">
           <div className="flex justify-between items-center mb-2">
             <div className="text-xs text-text-secondary">Investimentos</div>
