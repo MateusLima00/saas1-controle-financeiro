@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from .. import models, schemas
 from ..auth import get_current_user
+from ..categorization import categoria_para_descricao
 from ..database import get_db
 from ..import_parsers import parse_csv, parse_ofx
 from ..timezone_utils import hoje
@@ -79,10 +80,12 @@ async def import_extrato(account_id: int, file: UploadFile, db: DbSession = Depe
         if existente:
             duplicadas += 1
             continue
+        categoria = categoria_para_descricao(db, t.descricao)
         db.add(
             models.Transaction(
                 data=dt.date.fromisoformat(t.data),
                 descricao=t.descricao,
+                categoria_id=categoria.id if categoria else None,
                 valor=t.valor,
                 tipo=t.tipo,
                 conta_id=account_id,

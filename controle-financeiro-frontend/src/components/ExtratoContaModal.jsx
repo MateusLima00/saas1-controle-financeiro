@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Upload } from "lucide-react";
+import { Download, Upload } from "lucide-react";
 import Modal from "./Modal";
 import { api } from "../api/client";
 import { formatDateShort, formatCurrency } from "../utils/format";
+import { exportarTransacoesCsv } from "../utils/exportCsv";
 
 // -----------------------------------------------------------------------
 // ExtratoContaModal.jsx
@@ -80,6 +81,10 @@ export default function ExtratoContaModal({ conta, onFechar, onImportar }) {
     [transacoes]
   );
 
+  function exportarCsv() {
+    exportarTransacoesCsv(transacoes, `extrato_${conta?.banco || "conta"}_${de || "tudo"}_a_${ate || "tudo"}.csv`);
+  }
+
   return (
     <Modal aberto={!!conta} titulo={`Extrato — ${conta?.banco ?? ""}`} onFechar={onFechar} largo>
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -117,6 +122,15 @@ export default function ExtratoContaModal({ conta, onFechar, onImportar }) {
           Total do período:{" "}
           <span className={total < 0 ? "text-danger" : "text-success"}>{formatCurrency(total)}</span>
         </span>
+
+        <button
+          onClick={exportarCsv}
+          disabled={transacoes.length === 0}
+          className="text-sm px-3 py-1.5 rounded-[var(--radius-control)] border border-border hover:bg-surface-2 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+        >
+          <Download size={14} />
+          Exportar CSV
+        </button>
 
         {onImportar && (
           <button

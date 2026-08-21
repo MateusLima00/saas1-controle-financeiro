@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
+import { Download } from "lucide-react";
 import { api } from "../api/client";
 import { formatDateShort, formatCurrency } from "../utils/format";
+import { exportarTransacoesCsv } from "../utils/exportCsv";
 
 // -----------------------------------------------------------------------
 // Extrato.jsx
@@ -107,9 +109,23 @@ export default function Extrato() {
     });
   }, [transacoes, categoriaFiltro, busca]);
 
+  function exportarCsv() {
+    exportarTransacoesCsv(transacoesFiltradas, `extrato_${de || "tudo"}_a_${ate || "tudo"}.csv`);
+  }
+
   return (
     <div className="p-6">
-      <h1 className="text-lg font-medium mb-4">Extrato completo</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h1 className="text-lg font-medium">Extrato completo</h1>
+        <button
+          onClick={exportarCsv}
+          disabled={transacoesFiltradas.length === 0}
+          className="text-sm px-3 py-1.5 rounded-[var(--radius-control)] border border-border hover:bg-surface-2 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+        >
+          <Download size={14} />
+          Exportar CSV
+        </button>
+      </div>
 
       {/* Barra de filtros */}
       <div className="flex flex-wrap gap-2 mb-4">

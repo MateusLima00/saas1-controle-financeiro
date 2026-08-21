@@ -19,6 +19,14 @@ def _make_external_id(conta_id: int, data: str, descricao: str, valor: float) ->
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
+def _limpar_descricao(bruta: str) -> str:
+    """Bancos costumam exportar descrição com espaços duplicados, tabs ou
+    quebra de linha no meio (principalmente em OFX) — colapsa tudo em um
+    espaço só e tira acentuação de espaço non-breaking (comum em extratos
+    do Itaú/Bradesco copiados de PDF pra CSV)."""
+    return re.sub(r"\s+", " ", bruta.replace("\xa0", " ")).strip()
+
+
 def _parse_valor_br_ou_us(bruto: str) -> float:
     bruto = bruto.strip().replace("R$", "").strip()
     if "," in bruto and "." in bruto:
@@ -52,13 +60,19 @@ def parse_csv(conteudo: bytes, conta_id: int) -> list[ParsedTransaction]:
     resultado = []
     for linha in reader:
         data_bruta = (linha.get(col_data) or "").strip()
-        descricao = (linha.get(col_descricao) or "").strip()
+        descricao = _limpar_descricao(linha.get(col_descricao) or "")
         valor_bruto = (linha.get(col_valor) or "").strip()
         if not data_bruta or not valor_bruto:
             continue
 
-        valor = _parse_valor_br_ou_us(valor_bruto)
-        data_iso = _normalizar_data(data_bruta)
+        try:
+            valor = _parse_valor_br_ou_us(valor_bruto)
+            data_iso = _normalizar_data(data_bruta)
+        except ValueError:
+            # Linha individual mal formatada (ex: cabeçalho de totais no
+            # rodapé do CSV do banco) não deve derrubar o import inteiro —
+            # só essa linha é ignorada.
+            continue
         tipo = "credit" if valor >= 0 else "debit"
         resultado.append(
             ParsedTransaction(
@@ -93,7 +107,7 @@ def parse_ofx(conteudo: bytes, conta_id: int) -> list[ParsedTransaction]:
         campos = {tag.upper(): valor.strip() for tag, valor in _OFX_FIELD_RE.findall(bloco)}
         dtposted = campos.get("DTPOSTED", "")
         trnamt = campos.get("TRNAMT", "")
-        descricao = campos.get("MEMO") or campos.get("NAME") or "Sem descrição"
+        descricao = _limpar_descricao(campos.get("MEMO") or campos.get("NAME") or "Sem descrição")
         fitid = campos.get("FITID")
 
         if not dtposted or not trnamt:
