@@ -94,30 +94,37 @@ def list_accounts(item_id: str) -> list[dict]:
     return data.get("results", [])
 
 
-def list_transactions(account_id: str, page_size: int = 500) -> list[dict]:
+def list_transactions(account_id: str) -> list[dict]:
     """Busca todas as transações de uma conta, paginando até o fim.
 
-    Pede explicitamente `from` = 12 meses atrás: sem esse parâmetro a
-    Pluggy aplica um período padrão mais curto. 12 meses é o teto que o
-    Open Finance normalmente autoriza pra maioria dos bancos/conectores
-    (histórico mais antigo que isso costuma não estar disponível nem do
-    lado do banco, independente do que a gente pedir aqui).
+    Pede explicitamente `createdAtFrom` = 12 meses atrás: sem esse
+    parâmetro a Pluggy aplica um período padrão mais curto. 12 meses é o
+    teto que o Open Finance normalmente autoriza pra maioria dos
+    bancos/conectores (histórico mais antigo que isso costuma não estar
+    disponível nem do lado do banco, independente do que a gente pedir
+    aqui).
 
     `GET /transactions` (paginação por `page`/`totalPages`) foi
-    descontinuado pela Pluggy (410 ENDPOINT_DEPRECATED) — usa `GET
-    /v2/transactions`, que pagina por `cursor` em vez de número de
-    página."""
+    descontinuado pela Pluggy (410 ENDPOINT_DEPRECATED) — o substituto
+    `GET /v2/transactions` **não aceita `pageSize`/`page`/`cursor`/`from`
+    nenhum** (validado empiricamente contra a API: qualquer um desses
+    dá 400 "property X should not exist"). Os únicos query params
+    aceitos são `accountId` e `createdAtFrom`; a paginação é via campo
+    `next` na resposta — uma URL completa e pronta pra chamar (ou
+    `null` quando acabou), não um token/cursor pra montar você mesmo."""
     desde = (dt.date.today() - dt.timedelta(days=365)).isoformat()
 
     resultados: list[dict] = []
-    cursor: str | None = None
-    while True:
-        params = {"accountId": account_id, "pageSize": page_size, "from": desde}
-        if cursor:
-            params["cursor"] = cursor
-        data = _request("GET", "/v2/transactions", params=params)
+    data = _request(
+        "GET", "/v2/transactions", params={"accountId": account_id, "createdAtFrom": desde}
+    )
+    resultados.extend(data.get("results", []))
+    next_url = data.get("next")
+    while next_url:
+        resp = httpx.get(next_url, headers=_headers(), timeout=30)
+        if resp.status_code >= 400:
+            raise PluggyError(f"Pluggy GET {next_url} falhou ({resp.status_code}): {resp.text}")
+        data = resp.json()
         resultados.extend(data.get("results", []))
-        cursor = data.get("cursor") or data.get("nextCursor")
-        if not cursor:
-            break
+        next_url = data.get("next")
     return resultados
