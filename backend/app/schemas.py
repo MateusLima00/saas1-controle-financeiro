@@ -246,24 +246,6 @@ class ImportResultOut(BaseModel):
     ignoradas: int
 
 
-class SyncResultOut(BaseModel):
-    status: str
-    mensagem: str
-    contas_atualizadas: int = 0
-
-
-class SyncRequest(BaseModel):
-    item_id: str | None = Field(None, serialization_alias="itemId", validation_alias="itemId")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class ConnectTokenOut(BaseModel):
-    connect_token: str = Field(serialization_alias="connectToken", validation_alias="connectToken")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
 # -- Dashboard aggregates -------------------------------------------------------------
 
 

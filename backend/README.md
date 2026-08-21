@@ -55,50 +55,26 @@ libera só a origem definida em `FRONTEND_ORIGIN` com `allow_credentials=True`).
 | Investimentos | `GET/POST /investments`, `PUT/DELETE /investments/{id}` |
 | Assinaturas | `GET/POST /subscriptions`, `PUT/DELETE /subscriptions/{id}` |
 | Dashboard | `GET /dashboard/resumo`, `GET /dashboard/gastos-por-categoria`, `GET /dashboard/evolucao` |
-| Sincronização | `POST /accounts/sync` (Pluggy), `POST /accounts/{id}/import` (CSV/OFX) |
+| Importação de extrato | `POST /accounts/{id}/import` (CSV/OFX) |
 | Telegram | `POST /telegram/webhook` |
 
 Os schemas de saída usam os mesmos nomes de campo do `mockData.js`
 (`valorAlvo`, `valorAtual`, `ultimaSync`, `proximaCobranca`, etc.) pra
 minimizar retrabalho no frontend na Etapa 2.
 
-## Sincronização de contas (Etapa 3)
+## Importação de extrato
 
-- O **Conector 200 (MeuPluggy)** é OAuth — não existe usuário/senha fixo de
-  sandbox. Conectar um banco de verdade exige o **Pluggy Connect Widget**
-  no navegador (login/consentimento no próprio banco do usuário); o
-  backend não tem como automatizar esse passo.
-  - **`POST /accounts/connect-token`** — gera o token de curta duração que
-    o frontend (`react-pluggy-connect`, tela Contas) usa pra abrir o
-    widget. Aceita `{ itemId }` opcional no corpo pra reabrir o widget em
-    modo de re-login de um item já existente.
-  - Ao terminar o fluxo no widget, o frontend manda o `itemId` retornado
-    pra **`POST /accounts/sync`** (`{ itemId }` no corpo), que busca as
-    contas/transações desse item na Pluggy e faz upsert local (contas
-    casadas por `pluggy_account_id`, transações deduplicadas por
-    `external_id = "pluggy:{id da transação}"`). Chamado sem `itemId`
-    (botão "Atualizar agora"), reusa o item já vinculado a alguma conta
-    local; sem nenhum item conectado ainda, responde `400` orientando a
-    conectar pelo widget primeiro.
-  - Exige `PLUGGY_CLIENT_ID`/`PLUGGY_CLIENT_SECRET` no `.env` (conta em
-    https://dashboard.pluggy.ai); sem eles, os dois endpoints acima
-    respondem `501`.
-  - **Importante**: bancos conectados direto no site **meu.pluggy.ai** (o
-    app de consumidor final da própria Pluggy) **não aparecem aqui** — é
-    uma aplicação diferente da nossa (`PLUGGY_CLIENT_ID`). Só contam
-    contas conectadas pelo widget deste projeto.
-- **`POST /accounts/{id}/import`** — fallback que já funciona: upload de
-  extrato em `.csv`, `.ofx` ou `.qfx` (multipart/form-data, campo `file`).
-  CSV precisa ter colunas de data/descrição/valor (nomes em português ou
-  inglês, ex: `data,descricao,valor`). Deduplica lançamentos repetidos via
-  hash de conta+data+descrição+valor (CSV) ou `FITID` (OFX), então
-  reimportar o mesmo arquivo não duplica nada.
-- **Job diário automático** (`app/scheduler.py`, APScheduler): roda todo
-  dia às 06:00 (horário de São Paulo, definido no `BackgroundScheduler`),
-  sincronizando todo item já conectado (`Account.pluggy_item_id`
-  distintos). Sobe junto com a aplicação (`startup`/`shutdown` do
-  FastAPI) — não precisa de processo externo nem cron do SO. Sem
-  credenciais Pluggy configuradas, o job só loga e sai sem erro.
+Não há mais integração automática com banco (a integração via Pluggy/
+MeuPluggy foi removida). Toda entrada de transação é manual: pelo formulário,
+pelo bot do Telegram, ou por upload de extrato.
+
+- **`POST /accounts/{id}/import`** — upload de extrato em `.csv`, `.ofx` ou
+  `.qfx` (multipart/form-data, campo `file`). CSV precisa ter colunas de
+  data/descrição/valor (nomes em português ou inglês, ex:
+  `data,descricao,valor`). Deduplica lançamentos repetidos via hash de
+  conta+data+descrição+valor (CSV) ou `FITID` (OFX), então reimportar o
+  mesmo arquivo (ex: extrato do mês, todo mês) não duplica nada — só entram
+  os lançamentos novos.
 
 ## Notificações por email
 
@@ -110,12 +86,9 @@ nada. `NOTIFY_EMAIL` é o destinatário (default: o próprio `SMTP_EMAIL`).
 
 Gatilhos implementados (`app/services/notifications.py`):
 
-- **Falha de sincronização** — quando o job diário da Pluggy falha pra
-  algum item.
 - **Meta atingida** — ao criar uma contribuição ou editar uma meta que
   cruza o valor alvo (`routers/goals.py`).
-- **Dígest diário** — 1 email por dia (mandado pelo job, depois do sync),
-  juntando: resumo (saldo total, gasto do mês), contas com saldo abaixo
+- **Dígest diário** — 1 email por dia (job das 06:00), juntando: resumo (saldo total, gasto do mês), contas com saldo abaixo
   de `LOW_BALANCE_THRESHOLD`, assinaturas cobrando nos próximos
   `SUBSCRIPTION_ALERT_DAYS` dias, transações >= `LARGE_TRANSACTION_THRESHOLD`
   desde ontem, e gasto do dia anterior `UNUSUAL_SPEND_MULTIPLIER`x+ acima
@@ -180,9 +153,9 @@ Setup (feito uma vez, no Google Cloud Console):
 - `data` das transações e contribuições de metas é `date` real (ISO), não
   a string `"dd/mm"` do mock — ajuste de formatação fica pro frontend na
   Etapa 2.
-- Integração Pluggy implementada e testada (connect-token + widget + sync
-  + job diário) — ver seção "Sincronização de contas" acima. Import
-  CSV/OFX e integração Telegram já estão completos.
+- Import CSV/OFX e integração Telegram já estão completos (única forma de
+  entrada de transação, além do formulário manual, depois da remoção da
+  integração Pluggy).
 
 ## CORS
 
@@ -198,8 +171,8 @@ específica — SQLite serve pro uso pessoal atual, mas `DATABASE_URL` já
 permite trocar por Postgres sem mudar código. Pontos a decidir quando for
 hospedar:
 
-- Onde rodar o backend (precisa ficar sempre no ar pra job diário da
-  Pluggy e pro webhook do Telegram responderem).
+- Onde rodar o backend (precisa ficar sempre no ar pro dígest diário e
+  pro webhook do Telegram responderem).
 - Trocar SQLite por Postgres se a plataforma escolhida não persistir disco
   local entre deploys.
 - Ajustar `FRONTEND_ORIGIN` e o `VITE_API_URL` do frontend pros domínios

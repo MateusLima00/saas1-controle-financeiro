@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2, Landmark, RefreshCw, Upload } from "lucide-react";
-import { PluggyConnect } from "react-pluggy-connect";
 import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ExtratoContaModal from "../components/ExtratoContaModal";
@@ -11,19 +10,15 @@ import { api } from "../api/client";
 // -----------------------------------------------------------------------
 // Contas.jsx
 //
-// Status de cada conta conectada via Pluggy + possibilidade de adicionar
-// uma conta manual (fallback de CSV/OFX, ou algo que a Pluggy não cobre).
-// "Conectar novo banco" abre o Pluggy Connect Widget (OAuth de verdade
-// com o banco, o backend não consegue automatizar esse login). Ao
-// terminar, o itemId retornado é mandado pro backend em /accounts/sync
-// pra buscar contas/transações. Contas manuais podem ser removidas (as
-// via Pluggy se desconectam por lá). CRUD contra /accounts.
+// Contas são sempre cadastradas manualmente. Transações entram por
+// lançamento manual, pelo bot do Telegram, ou por importação de extrato
+// (CSV/OFX/QFX) — não há mais sincronização automática com banco. CRUD
+// contra /accounts.
 // -----------------------------------------------------------------------
 
 const statusInfo = {
-  connected: { texto: "Conectado", cor: "text-success", bg: "bg-success/10" },
-  error: { texto: "Erro na sincronização", cor: "text-danger", bg: "bg-danger/10" },
-  pending: { texto: "Sincronizando...", cor: "text-text-secondary", bg: "bg-surface-2" },
+  connected: { texto: "Ativa", cor: "text-success", bg: "bg-success/10" },
+  error: { texto: "Erro", cor: "text-danger", bg: "bg-danger/10" },
   manual: { texto: "Manual", cor: "text-text-secondary", bg: "bg-surface-2" },
 };
 
@@ -35,10 +30,8 @@ export default function Contas() {
   const [nova, setNova] = useState({ banco: "", tipo: "checking", saldo: "" });
   const [paraExcluir, setParaExcluir] = useState(null);
   const [contaExtrato, setContaExtrato] = useState(null);
-  const [sincronizando, setSincronizando] = useState(false);
+  const [atualizando, setAtualizando] = useState(false);
   const [importandoId, setImportandoId] = useState(null);
-  const [connectToken, setConnectToken] = useState(null);
-  const [carregandoToken, setCarregandoToken] = useState(false);
   const inputArquivoRef = useRef(null);
   const contaParaImportarRef = useRef(null);
   const { mostrarToast } = useToast();
@@ -55,20 +48,17 @@ export default function Contas() {
     };
   }, []);
 
-  // O sync automático de 20 em 20 min roda no BACKEND (app/scheduler.py,
-  // job pluggy_frequent_sync) — não depende de ninguém com essa tela
-  // aberta (uso principal é via bot do Telegram/Nero). Aqui no frontend
-  // só recarregamos a lista quando a aba volta a ficar visível, pra
-  // mostrar dado fresco sem esperar o próximo `GET /accounts` manual.
-  useEffect(() => {
-    function aoVoltarVisivel() {
-      if (document.visibilityState === "visible") {
-        api.get("/accounts").then(setContas).catch(() => {});
-      }
+  async function recarregar() {
+    setAtualizando(true);
+    try {
+      const atualizadas = await api.get("/accounts");
+      setContas(atualizadas);
+    } catch (err) {
+      mostrarToast(err.message || "Não foi possível atualizar a lista.", "erro");
+    } finally {
+      setAtualizando(false);
     }
-    document.addEventListener("visibilitychange", aoVoltarVisivel);
-    return () => document.removeEventListener("visibilitychange", aoVoltarVisivel);
-  }, []);
+  }
 
   async function adicionarContaManual(e) {
     e.preventDefault();
@@ -90,43 +80,6 @@ export default function Contas() {
     } catch (err) {
       mostrarToast(err.message || "Não foi possível adicionar a conta.", "erro");
     }
-  }
-
-  async function sincronizarAgora(itemId) {
-    setSincronizando(true);
-    try {
-      await api.post("/accounts/sync", itemId ? { itemId } : undefined);
-      const atualizadas = await api.get("/accounts");
-      setContas(atualizadas);
-      mostrarToast("Contas sincronizadas.");
-    } catch (err) {
-      mostrarToast(err.message || "Não foi possível sincronizar agora.", "erro");
-    } finally {
-      setSincronizando(false);
-    }
-  }
-
-  async function abrirConectarBanco() {
-    setCarregandoToken(true);
-    try {
-      const { connectToken: token } = await api.post("/accounts/connect-token");
-      setConnectToken(token);
-    } catch (err) {
-      mostrarToast(err.message || "Não foi possível iniciar a conexão com o banco.", "erro");
-    } finally {
-      setCarregandoToken(false);
-    }
-  }
-
-  function aoConectarComSucesso(itemData) {
-    setConnectToken(null);
-    mostrarToast("Banco conectado, sincronizando...");
-    sincronizarAgora(itemData?.item?.id);
-  }
-
-  function aoErrarConexao(error) {
-    setConnectToken(null);
-    mostrarToast(error?.message || "Não foi possível conectar o banco.", "erro");
   }
 
   function abrirSeletorImportacao(contaId) {
@@ -188,48 +141,31 @@ export default function Contas() {
       />
 
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-        <h1 className="text-lg font-medium">Contas conectadas</h1>
+        <h1 className="text-lg font-medium">Contas</h1>
         <div className="flex gap-2 flex-wrap">
           <button
-            onClick={() => sincronizarAgora()}
-            disabled={sincronizando}
+            onClick={recarregar}
+            disabled={atualizando}
             className="text-sm px-3 py-1.5 rounded-[var(--radius-control)] border border-border hover:bg-surface-2 transition-colors flex items-center gap-1 disabled:opacity-50"
           >
-            <RefreshCw size={14} className={sincronizando ? "animate-spin" : ""} />
-            {sincronizando ? "Sincronizando..." : "Atualizar agora"}
+            <RefreshCw size={14} className={atualizando ? "animate-spin" : ""} />
+            {atualizando ? "Atualizando..." : "Atualizar lista"}
           </button>
           <button
             onClick={() => setModalAberto(true)}
             className="text-sm px-3 py-1.5 rounded-[var(--radius-control)] border border-border hover:bg-surface-2 transition-colors flex items-center gap-1"
           >
             <Plus size={14} />
-            Conta manual
-          </button>
-          <button
-            onClick={abrirConectarBanco}
-            disabled={carregandoToken}
-            className="text-sm px-3 py-1.5 rounded-[var(--radius-control)] border border-border hover:bg-surface-2 transition-colors disabled:opacity-50"
-          >
-            {carregandoToken ? "Abrindo..." : "Conectar novo banco"}
+            Nova conta
           </button>
         </div>
       </div>
 
-      {connectToken && (
-        <PluggyConnect
-          connectToken={connectToken}
-          includeSandbox={false}
-          onSuccess={aoConectarComSucesso}
-          onError={aoErrarConexao}
-          onClose={() => setConnectToken(null)}
-        />
-      )}
-
-      <Modal aberto={modalAberto} titulo="Nova conta manual" onFechar={() => setModalAberto(false)}>
+      <Modal aberto={modalAberto} titulo="Nova conta" onFechar={() => setModalAberto(false)}>
         <form onSubmit={adicionarContaManual} className="flex flex-col gap-3">
           <input
             type="text"
-            placeholder="Nome (ex: Dinheiro em espécie)"
+            placeholder="Nome (ex: Nubank, Dinheiro em espécie)"
             value={nova.banco}
             onChange={(e) => setNova({ ...nova, banco: e.target.value })}
             className="w-full bg-surface-2 border border-border rounded-[var(--radius-control)] px-3 py-1.5 text-sm outline-none"
@@ -270,11 +206,7 @@ export default function Contas() {
 
       <ConfirmDialog
         aberto={!!paraExcluir}
-        mensagem={
-          paraExcluir?.origem === "manual"
-            ? `Tem certeza que quer excluir a conta "${paraExcluir?.banco}"? Essa ação não pode ser desfeita.`
-            : `Tem certeza que quer excluir a conta "${paraExcluir?.banco}"? Isso também desconecta o banco na Pluggy — vai precisar reconectar pelo widget se quiser sincronizar de novo.`
-        }
+        mensagem={`Tem certeza que quer excluir a conta "${paraExcluir?.banco}"? Essa ação não pode ser desfeita.`}
         onConfirmar={confirmarExclusao}
         onCancelar={() => setParaExcluir(null)}
       />
@@ -294,20 +226,20 @@ export default function Contas() {
           <Landmark size={24} className="text-text-muted" />
           <p className="text-sm text-text-secondary">Nenhuma conta cadastrada ainda.</p>
           <button onClick={() => setModalAberto(true)} className="text-xs text-accent mt-1">
-            Adicionar uma conta manual
+            Adicionar uma conta
           </button>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
           {contas.map((conta) => {
-            const status = statusInfo[conta.status];
+            const status = statusInfo[conta.status] || statusInfo.manual;
             return (
               <div key={conta.id} className="bg-surface rounded-card border border-border p-4 flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium">{conta.banco}</div>
                   <div className="text-xs text-text-muted">
                     {conta.tipo === "credit_card" ? "Cartão de crédito" : "Conta"}
-                    {conta.origem === "manual" ? " · adicionada manualmente" : ` · última sync ${conta.ultimaSync}`}
+                    {conta.ultimaSync && conta.ultimaSync !== "manual" ? ` · último extrato ${conta.ultimaSync}` : ""}
                   </div>
                 </div>
 
@@ -328,7 +260,7 @@ export default function Contas() {
                     <Upload size={15} />
                   </button>
                   <button
-                    onClick={() => setParaExcluir({ id: conta.id, banco: conta.banco, origem: conta.origem })}
+                    onClick={() => setParaExcluir({ id: conta.id, banco: conta.banco })}
                     aria-label={`Remover ${conta.banco}`}
                     className="text-text-muted hover:text-danger"
                     title="Excluir conta"

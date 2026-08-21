@@ -43,9 +43,8 @@ export default function Dashboard() {
   const [investimentos, setInvestimentos] = useState([]);
   const [assinaturas, setAssinaturas] = useState([]);
 
-  useEffect(() => {
-    let ativo = true;
-    Promise.all([
+  function carregarDados() {
+    return Promise.all([
       api.get("/dashboard/resumo"),
       api.get("/transactions"),
       api.get("/dashboard/gastos-por-categoria"),
@@ -53,17 +52,20 @@ export default function Dashboard() {
       api.get("/goals"),
       api.get("/investments"),
       api.get("/subscriptions"),
-    ])
-      .then(([resumoData, transacoesData, gastosData, evolucaoData, metasData, investimentosData, assinaturasData]) => {
-        if (!ativo) return;
-        setResumo(resumoData);
-        setTransacoes(transacoesData);
-        setGastosPorCategoria(gastosData);
-        setEvolucao(evolucaoData);
-        setMetas(metasData);
-        setInvestimentos(investimentosData);
-        setAssinaturas(assinaturasData);
-      })
+    ]).then(([resumoData, transacoesData, gastosData, evolucaoData, metasData, investimentosData, assinaturasData]) => {
+      setResumo(resumoData);
+      setTransacoes(transacoesData);
+      setGastosPorCategoria(gastosData);
+      setEvolucao(evolucaoData);
+      setMetas(metasData);
+      setInvestimentos(investimentosData);
+      setAssinaturas(assinaturasData);
+    });
+  }
+
+  useEffect(() => {
+    let ativo = true;
+    carregarDados()
       .catch((err) => ativo && setErro(err.message || "Não foi possível carregar o dashboard."))
       .finally(() => ativo && setCarregando(false));
     return () => {
@@ -99,14 +101,14 @@ export default function Dashboard() {
   function handleAtualizarAgora() {
     if (atualizando) return;
 
-    // TODO: chamar o endpoint de update da Pluggy (Conector 200) aqui.
-    // Por enquanto simula o tempo de resposta pra dar feedback visual.
     setAtualizando(true);
-    setTimeout(() => {
-      setAtualizando(false);
-      setAtualizadoAgora(true);
-      setTimeout(() => setAtualizadoAgora(false), 2500);
-    }, 900);
+    carregarDados()
+      .then(() => {
+        setAtualizadoAgora(true);
+        setTimeout(() => setAtualizadoAgora(false), 2500);
+      })
+      .catch((err) => setErro(err.message || "Não foi possível atualizar o dashboard."))
+      .finally(() => setAtualizando(false));
   }
 
   return (

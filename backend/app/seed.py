@@ -35,9 +35,9 @@ def run():
         db.add_all(categorias.values())
 
         contas = [
-            models.Account(banco="Nubank", tipo="checking", saldo=3200, status="connected", ultima_sync="há 4h", origem="pluggy"),
-            models.Account(banco="Inter", tipo="savings", saldo=5220, status="connected", ultima_sync="há 4h", origem="pluggy"),
-            models.Account(banco="C6 Bank", tipo="credit_card", saldo=-680, status="error", ultima_sync="há 2 dias", origem="pluggy"),
+            models.Account(banco="Nubank", tipo="checking", saldo=3200, status="connected", ultima_sync="há 4h", origem="manual"),
+            models.Account(banco="Inter", tipo="savings", saldo=5220, status="connected", ultima_sync="há 4h", origem="manual"),
+            models.Account(banco="C6 Bank", tipo="credit_card", saldo=-680, status="error", ultima_sync="há 2 dias", origem="manual"),
         ]
         db.add_all(contas)
         db.flush()
@@ -58,7 +58,7 @@ def run():
                     categoria_id=categorias[categoria_nome].id,
                     valor=valor,
                     tipo=tipo,
-                    origem="pluggy",
+                    origem="manual",
                 )
             )
 

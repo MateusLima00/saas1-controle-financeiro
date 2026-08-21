@@ -1,8 +1,9 @@
 # Controle Financeiro (frontend)
 
-Frontend do projeto de controle financeiro pessoal. Por enquanto só o
-**front**, com dados mockados em `src/data/mockData.js` — ainda não tem
-backend nem integração real com a Pluggy.
+Frontend do projeto de controle financeiro pessoal. `src/data/mockData.js`
+tem dados falsos usados só como referência de formato; o app consome a API
+real do backend. Não há integração automática com banco — transações entram
+via lançamento manual, bot do Telegram, ou importação de extrato (CSV/OFX).
 
 ## Stack
 
@@ -49,17 +50,7 @@ src/
 | `/investimentos`   | Investimentos, com rendimento calculado                 |
 | `/assinaturas`     | Assinaturas recorrentes, total mensal                   |
 | `/categorias`      | Gerenciamento de categorias e regras                    |
-| `/contas`          | Contas conectadas (Pluggy) + conta manual               |
+| `/contas`          | Contas (cadastro manual) + importação de extrato        |
 
 Veja **DESIGN.md** pra saber como mexer em cores, espaçamento e ícones.
 
-## O que ainda falta (propositalmente fora desse escopo)
-
-- Não tem backend / API real — tudo em `mockData.js` + estado local (useState)
-- Dados de metas/investimentos/assinaturas/gastos diários somem ao dar refresh
-  na página (não tem persistência ainda) — isso resolve quando o backend existir
-- Login não autentica de verdade, só navega pra `/`
-- Sem proteção de rota (dá pra acessar `/` sem passar pelo login)
-- Integração com a API da Pluggy
-
-Isso entra na próxima etapa, quando o backend for definido.

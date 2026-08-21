@@ -1,19 +1,13 @@
 import datetime as dt
-import logging
-import os
 
-import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy.orm import Session as DbSession
 
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
 from ..import_parsers import parse_csv, parse_ofx
-from ..services import pluggy_client, pluggy_sync
 from ..timezone_utils import hoje
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/accounts", tags=["accounts"], dependencies=[Depends(get_current_user)]
@@ -51,134 +45,8 @@ def delete_account(account_id: int, db: DbSession = Depends(get_db)):
     account = db.query(models.Account).filter(models.Account.id == account_id).first()
     if not account:
         raise HTTPException(404, "Conta não encontrada")
-
-    item_id = account.pluggy_item_id
     db.delete(account)
     db.commit()
-
-    if item_id:
-        outras_contas_do_item = (
-            db.query(models.Account).filter(models.Account.pluggy_item_id == item_id).count()
-        )
-        if outras_contas_do_item == 0:
-            try:
-                pluggy_client.delete_item(item_id)
-            except pluggy_client.PluggyError:
-                # Item já pode ter sido removido do lado da Pluggy, ou a API
-                # está fora do ar — a exclusão local já aconteceu, então não
-                # bloqueamos o usuário por isso.
-                pass
-
-
-def _require_pluggy_configurado():
-    if not (os.getenv("PLUGGY_CLIENT_ID") and os.getenv("PLUGGY_CLIENT_SECRET")):
-        raise HTTPException(
-            501,
-            "Integração com a Pluggy ainda não configurada (faltam PLUGGY_CLIENT_ID/"
-            "PLUGGY_CLIENT_SECRET). Use o import manual de CSV/OFX por enquanto.",
-        )
-
-
-@router.post("/connect-token", response_model=schemas.ConnectTokenOut)
-def create_connect_token(payload: schemas.SyncRequest | None = None):
-    """Gera o token de curta duração usado pelo Pluggy Connect Widget no
-    frontend (tela Contas). O Conector 200 (MeuPluggy) é OAuth — a conexão
-    de verdade com o banco só acontece nesse widget, no navegador do
-    usuário; o backend não tem como automatizar login/consentimento."""
-    _require_pluggy_configurado()
-    try:
-        token = pluggy_client.create_connect_token(payload.item_id if payload else None)
-    except pluggy_client.PluggyError as exc:
-        raise HTTPException(502, f"Falha ao gerar connect token da Pluggy: {exc}")
-    return schemas.ConnectTokenOut(connect_token=token)
-
-
-def _disparar_refresh_meupluggy(background_tasks: BackgroundTasks) -> None:
-    """Dispara (sem esperar) o serviço isolado `meupluggy-refresher`, que
-    atualiza as conexões no meu.pluggy.ai (login por email + clique em
-    "Atualizar" em cada banco) — nosso `PATCH /items/{id}` sozinho não
-    força isso pro Conector 200/MeuPluggy, que é OAuth (ver
-    meupluggy-refresher/README.md). Só roda se configurado; sem isso, o
-    sync normal (lê o que já estiver em cache na Pluggy) segue igual.
-    A atualização em si leva ~1-2 min, então não deixa os dados frescos
-    NESTE sync — só no próximo (job de 20 min ou próximo clique)."""
-    url = os.getenv("MEUPLUGGY_REFRESHER_URL")
-    token = os.getenv("MEUPLUGGY_REFRESHER_TOKEN")
-    if not (url and token):
-        return
-    background_tasks.add_task(_chamar_refresher, url, token)
-
-
-def _chamar_refresher(url: str, token: str) -> None:
-    try:
-        resp = httpx.post(
-            f"{url.rstrip('/')}/atualizar", headers={"Authorization": f"Bearer {token}"}, timeout=10
-        )
-        logger.info("meupluggy-refresher disparado: %s", resp.status_code)
-    except Exception:
-        logger.exception("Falha ao disparar o meupluggy-refresher (não bloqueia o sync normal).")
-
-
-@router.post("/sync", response_model=schemas.SyncResultOut)
-def sync_accounts(
-    background_tasks: BackgroundTasks,
-    payload: schemas.SyncRequest | None = None,
-    db: DbSession = Depends(get_db),
-):
-    """Busca contas/transações na Pluggy e faz upsert local.
-
-    - Se `itemId` for passado no corpo, é porque o Pluggy Connect Widget
-      acabou de conectar um banco novo (ou re-autenticar um existente) —
-      sincroniza só esse item.
-    - Sem `itemId` (clique em "atualizar agora" na tela Contas), sincroniza
-      TODOS os itens já conectados — não só o primeiro que aparecer, senão
-      quem tem mais de um banco conectado nunca vê os outros atualizarem.
-      Também dispara (em background) o meupluggy-refresher, se configurado.
-    - Sem nenhum item conectado ainda, orienta a conectar via widget
-      primeiro (endpoint `/accounts/connect-token`)."""
-    _require_pluggy_configurado()
-
-    item_id = payload.item_id if payload else None
-    if item_id:
-        try:
-            contas_atualizadas = pluggy_sync.sync_item(db, item_id)
-            db.commit()
-        except pluggy_client.PluggyError as exc:
-            db.rollback()
-            raise HTTPException(502, f"Falha ao sincronizar com a Pluggy: {exc}")
-        return schemas.SyncResultOut(
-            status="ok",
-            mensagem=f"{contas_atualizadas} conta(s) sincronizada(s) via Pluggy.",
-            contas_atualizadas=contas_atualizadas,
-        )
-
-    item_ids = pluggy_sync.distinct_item_ids(db)
-    if not item_ids:
-        raise HTTPException(
-            400,
-            "Nenhuma conta conectada à Pluggy ainda. Conecte um banco pelo "
-            "Pluggy Connect Widget (GET connect-token) antes de sincronizar.",
-        )
-
-    _disparar_refresh_meupluggy(background_tasks)
-    resultados = pluggy_sync.sync_all_items(db)
-    falhas = {iid: err for iid, err in resultados.items() if err is not None}
-    contas_atualizadas = (
-        db.query(models.Account).filter(models.Account.pluggy_item_id.in_(item_ids)).count()
-    )
-    if falhas and len(falhas) == len(resultados):
-        primeiro_erro = next(iter(falhas.values()))
-        raise HTTPException(502, f"Falha ao sincronizar com a Pluggy: {primeiro_erro}")
-
-    mensagem = f"{contas_atualizadas} conta(s) sincronizada(s) via Pluggy ({len(item_ids)} banco(s))."
-    if falhas:
-        mensagem += f" {len(falhas)} banco(s) falharam e serão tentados de novo automaticamente."
-
-    return schemas.SyncResultOut(
-        status="ok" if not falhas else "parcial",
-        mensagem=mensagem,
-        contas_atualizadas=contas_atualizadas,
-    )
 
 
 @router.post("/{account_id}/import", response_model=schemas.ImportResultOut)

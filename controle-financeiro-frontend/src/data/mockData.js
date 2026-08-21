@@ -7,11 +7,11 @@
 // pensado pra já bater com o que o backend provavelmente vai devolver).
 // -----------------------------------------------------------------------
 
-// ---- Contas conectadas (tabela "accounts" via Pluggy + manuais) -------
+// ---- Contas (tabela "accounts", sempre manuais) ------------------------
 export const contasMock = [
-  { id: 1, banco: "Nubank", tipo: "checking", saldo: 3200, status: "connected", ultimaSync: "há 4h", origem: "pluggy" },
-  { id: 2, banco: "Inter", tipo: "savings", saldo: 5220, status: "connected", ultimaSync: "há 4h", origem: "pluggy" },
-  { id: 3, banco: "C6 Bank", tipo: "credit_card", saldo: -680, status: "error", ultimaSync: "há 2 dias", origem: "pluggy" },
+  { id: 1, banco: "Nubank", tipo: "checking", saldo: 3200, status: "connected", ultimaSync: "há 4h", origem: "manual" },
+  { id: 2, banco: "Inter", tipo: "savings", saldo: 5220, status: "connected", ultimaSync: "há 4h", origem: "manual" },
+  { id: 3, banco: "C6 Bank", tipo: "credit_card", saldo: -680, status: "error", ultimaSync: "há 2 dias", origem: "manual" },
 ];
 
 // ---- Transações (tabela "transactions") --------------------------------

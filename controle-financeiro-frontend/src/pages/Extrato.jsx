@@ -6,9 +6,9 @@ import { formatDateShort, formatCurrency } from "../utils/format";
 // Extrato.jsx
 //
 // Lista completa de transações. Período e conta filtram no backend
-// (GET /transactions?de=&ate=&conta_id=) — com meses de histórico real da
-// Pluggy, filtrar só no front deixaria a lista pesada demais. Categoria e
-// busca por texto continuam client-side, em cima do que já veio filtrado.
+// (GET /transactions?de=&ate=&conta_id=) — com meses de extratos importados,
+// filtrar só no front deixaria a lista pesada demais. Categoria e busca por
+// texto continuam client-side, em cima do que já veio filtrado.
 // -----------------------------------------------------------------------
 
 function primeiroDiaDoMes(data) {

@@ -3,12 +3,11 @@ independente e nunca propaga exceção — notificação não pode derrubar o
 sync nem nenhuma outra rota (ver `email_service.send_email`).
 
 Gatilhos implementados:
-- Falha de sincronização (chamado direto do job diário).
 - Meta atingida (chamado direto do router de goals, ao criar contribuição
   ou editar valor_atual).
 - Resumo diário + saldo baixo/negativo + assinatura próxima de cobrar +
   transação grande + gasto incomum do dia — tudo junto num só email
-  ("dígest diário"), rodado pelo job depois do sync (`run_daily_digest`).
+  ("dígest diário"), rodado 1x/dia pelo scheduler (`run_daily_digest`).
 """
 import datetime as dt
 import logging
@@ -35,16 +34,6 @@ LOW_BALANCE_THRESHOLD = _float_env("LOW_BALANCE_THRESHOLD", 0)
 LARGE_TRANSACTION_THRESHOLD = _float_env("LARGE_TRANSACTION_THRESHOLD", 500)
 SUBSCRIPTION_ALERT_DAYS = int(_float_env("SUBSCRIPTION_ALERT_DAYS", 3))
 UNUSUAL_SPEND_MULTIPLIER = _float_env("UNUSUAL_SPEND_MULTIPLIER", 2)
-
-
-def notify_sync_failure(item_id: str, erro: str) -> None:
-    send_email(
-        "⚠️ Falha na sincronização com a Pluggy",
-        f"O sync automático do item {item_id} falhou hoje ({_hoje().isoformat()}).\n\n"
-        f"Erro: {erro}\n\n"
-        "Verifique se o banco continua conectado (tela Contas) — pode ser "
-        "necessário reconectar pelo widget.",
-    )
 
 
 def notify_goal_achieved(goal: "models.Goal") -> None:

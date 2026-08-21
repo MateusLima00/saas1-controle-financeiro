@@ -9,7 +9,7 @@ import { formatDateShort, formatCurrency } from "../utils/format";
 //
 // Popup com o extrato de UMA conta (aberto a partir do card na tela
 // Contas) — mesmo filtro de período do Extrato.jsx completo, só que já
-// vem com essa conta fixada, pra ver rapidinho o que veio da Pluggy sem
+// vem com essa conta fixada, pra ver rapidinho o que foi importado sem
 // sair da tela de Contas.
 // -----------------------------------------------------------------------
 

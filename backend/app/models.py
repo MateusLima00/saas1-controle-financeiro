@@ -40,9 +40,7 @@ class Account(Base):
     saldo = Column(Float, default=0)
     status = Column(String, default="connected")  # connected | error
     ultima_sync = Column(String, default="")
-    origem = Column(String, default="manual")  # pluggy | manual
-    pluggy_item_id = Column(String, nullable=True, index=True)
-    pluggy_account_id = Column(String, nullable=True, unique=True, index=True)
+    origem = Column(String, default="manual")  # manual
 
     transacoes = relationship("Transaction", back_populates="conta")
 
@@ -68,7 +66,7 @@ class Transaction(Base):
     conta_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
     valor = Column(Float, nullable=False)
     tipo = Column(String, nullable=False)  # debit | credit
-    origem = Column(String, default="manual")  # pluggy | manual | telegram | import
+    origem = Column(String, default="manual")  # manual | telegram | import
     external_id = Column(String, nullable=True, unique=True, index=True)
 
     categoria = relationship("Category", back_populates="transacoes")

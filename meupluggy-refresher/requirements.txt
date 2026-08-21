@@ -1,6 +1,0 @@
-fastapi==0.141.1
-uvicorn==0.52.0
-python-dotenv==1.0.1
-playwright==1.62.0
-greenlet==3.5.4
-httpx==0.28.1

@@ -139,11 +139,3 @@ def require_service_token(authorization: str | None = Header(default=None)) -> N
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token de integração inválido")
 
 
-def require_meupluggy_refresh_token(authorization: str | None = Header(default=None)) -> None:
-    """Mesmo padrão de `require_service_token`, token separado — chamado
-    pelo serviço isolado `meupluggy-refresher` quando termina de atualizar
-    as conexões no meu.pluggy.ai."""
-    esperado = os.getenv("MEUPLUGGY_REFRESH_CALLBACK_TOKEN", "")
-    recebido = (authorization or "").removeprefix("Bearer ").strip()
-    if not esperado or not recebido or not hmac.compare_digest(recebido, esperado):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token de integração inválido")
