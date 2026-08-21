@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from .. import models, schemas
 from ..auth import require_service_token
-from ..categorization import categoria_para_descricao
+from ..categorization import categoria_para_descricao, extrair_palavra_chave
 from ..database import get_db
 from ..services.import_service import importar_extrato
 from ..timezone_utils import hoje
@@ -87,41 +87,76 @@ class NeroTransacaoResumoOut(BaseModel):
     conta: str | None = None
 
 
+class NeroUltimosPorContaOut(BaseModel):
+    conta: str
+    transacoes: list[NeroTransacaoResumoOut]
+
+
 class NeroResumoOut(BaseModel):
     saldoTotal: float
     gastoMes: float
     gastoMesAnterior: float
     contas: list[NeroContaResumoOut]
     gastosPorCategoria: list[schemas.GastoPorCategoriaOut]
-    ultimasTransacoes: list[NeroTransacaoResumoOut]
+    ultimosPorConta: list[NeroUltimosPorContaOut]
+
+
+def _transacao_para_nero(t: models.Transaction) -> NeroTransacaoResumoOut:
+    # Descrição enxuta pra exibição no chat — a mesma extração usada pra
+    # aprender regra de categoria (remove "Pix enviado:", "Cp:12345-" etc,
+    # deixando só quem pagou/recebeu).
+    return NeroTransacaoResumoOut(
+        data=t.data,
+        descricao=extrair_palavra_chave(t.descricao),
+        valor=t.valor,
+        tipo=t.tipo,
+        categoria=t.categoria.nome if t.categoria else None,
+        conta=t.conta.banco if t.conta else None,
+    )
 
 
 @router.get("/nero/resumo", response_model=NeroResumoOut)
 def resumo_para_nero(db: DbSession = Depends(get_db)):
     """Dado real do Saas1 (não o controle paralelo do Nero) — pro Nero
     responder no Telegram com números de verdade quando perguntarem
-    "qual meu saldo" / "quanto gastei" etc."""
+    "qual meu saldo" / "quanto gastei" etc. Últimos lançamentos vêm
+    agrupados por conta (poucos de cada, não só os N mais recentes de
+    qualquer banco — senão um banco movimentado engole os outros)."""
     resumo_geral = resumo(db)
     categorias = gastos_por_categoria(db)
     contas = db.query(models.Account).all()
-    ultimas = (
-        db.query(models.Transaction).order_by(models.Transaction.data.desc(), models.Transaction.id.desc()).limit(8).all()
+
+    ultimos_por_conta = []
+    for conta in contas:
+        transacoes = (
+            db.query(models.Transaction)
+            .filter(models.Transaction.conta_id == conta.id)
+            .order_by(models.Transaction.data.desc(), models.Transaction.id.desc())
+            .limit(3)
+            .all()
+        )
+        if transacoes:
+            ultimos_por_conta.append(
+                NeroUltimosPorContaOut(conta=conta.banco, transacoes=[_transacao_para_nero(t) for t in transacoes])
+            )
+
+    sem_conta = (
+        db.query(models.Transaction)
+        .filter(models.Transaction.conta_id.is_(None))
+        .order_by(models.Transaction.data.desc(), models.Transaction.id.desc())
+        .limit(3)
+        .all()
     )
+    if sem_conta:
+        ultimos_por_conta.append(
+            NeroUltimosPorContaOut(conta="Dinheiro", transacoes=[_transacao_para_nero(t) for t in sem_conta])
+        )
+
     return NeroResumoOut(
         saldoTotal=resumo_geral.saldoTotal,
         gastoMes=resumo_geral.gastoMes,
         gastoMesAnterior=resumo_geral.gastoMesAnterior,
         contas=[NeroContaResumoOut(banco=c.banco, tipo=c.tipo, saldo=c.saldo) for c in contas],
         gastosPorCategoria=categorias,
-        ultimasTransacoes=[
-            NeroTransacaoResumoOut(
-                data=t.data,
-                descricao=t.descricao,
-                valor=t.valor,
-                tipo=t.tipo,
-                categoria=t.categoria.nome if t.categoria else None,
-                conta=t.conta.banco if t.conta else None,
-            )
-            for t in ultimas
-        ],
+        ultimosPorConta=ultimos_por_conta,
     )
