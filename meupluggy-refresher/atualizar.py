@@ -97,12 +97,19 @@ def logar(page: Page, meu_pluggy_email: str, imap_email: str, imap_senha_app: st
 
 def listar_links_de_conexoes(page: Page) -> list[str]:
     page.goto("https://meu.pluggy.ai/connections", wait_until="domcontentloaded", timeout=60000)
-    page.wait_for_timeout(2000)
+    page.wait_for_timeout(3000)
     hrefs = {
         a.get_attribute("href")
         for a in page.query_selector_all('a[href^="/connections/"]')
         if a.get_attribute("href") and a.get_attribute("href") != "/connections"
     }
+    if not hrefs:
+        # Diagnóstico: sem isso, um "0 conexões" fica impossível de
+        # investigar remotamente (não temos acesso a screenshot deste
+        # container). Loga onde a navegação realmente parou.
+        logger.warning(
+            "Nenhuma conexão encontrada — page.url=%s, title=%s", page.url, page.title()
+        )
     return sorted(hrefs)
 
 
