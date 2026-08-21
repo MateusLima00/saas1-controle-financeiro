@@ -34,12 +34,17 @@ principal.
    no backend principal (autenticado por `SAAS1_CALLBACK_TOKEN`), que
    dispara a sincronização de verdade (`pluggy_sync.sync_all_items`).
 
-## Deploy (Render, mesmo padrão do backend principal)
+## Deploy (Render, ambiente Docker)
 
-1. Criar um novo **Web Service** no Render, apontando pra esse
-   subdiretório (`meupluggy-refresher/`) do mesmo repositório.
-2. Build command: `pip install -r requirements.txt && playwright install --with-deps chromium`
-3. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+Usa a imagem oficial `mcr.microsoft.com/playwright/python` (já vem com
+Chromium + todas as dependências do sistema prontas) — o build normal
+(`pip install` + `playwright install --with-deps`) quebra no Render
+porque o `--with-deps` precisa de `sudo apt-get`, e o ambiente de build
+deles não dá permissão de root.
+
+1. Criar um novo **Web Service** no Render.
+2. **Root Directory**: `meupluggy-refresher`
+3. **Environment**: `Docker` (o Render detecta o `Dockerfile` automaticamente)
 4. Configurar as variáveis de ambiente (ver `.env.example`) — gerar um
    `REFRESH_TOKEN` novo, preencher `MEU_PLUGGY_EMAIL`/`MEU_PLUGGY_IMAP_APP_PASSWORD`,
    e o mesmo `SAAS1_CALLBACK_TOKEN` configurado no backend principal
