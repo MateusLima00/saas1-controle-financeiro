@@ -16,6 +16,7 @@ from .routers import (
     goals,
     integrations,
     investments,
+    meupluggy_refresh,
     pluggy_webhook,
     subscriptions,
     telegram,
@@ -47,6 +48,7 @@ app.include_router(dashboard.router)
 app.include_router(telegram.router)
 app.include_router(integrations.router)
 app.include_router(pluggy_webhook.router)
+app.include_router(meupluggy_refresh.router)
 
 
 @app.get("/health")

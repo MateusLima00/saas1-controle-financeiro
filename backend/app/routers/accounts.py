@@ -1,7 +1,9 @@
 import datetime as dt
+import logging
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+import httpx
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from sqlalchemy.orm import Session as DbSession
 
 from .. import models, schemas
@@ -10,6 +12,8 @@ from ..database import get_db
 from ..import_parsers import parse_csv, parse_ofx
 from ..services import pluggy_client, pluggy_sync
 from ..timezone_utils import hoje
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/accounts", tags=["accounts"], dependencies=[Depends(get_current_user)]
@@ -89,8 +93,38 @@ def create_connect_token(payload: schemas.SyncRequest | None = None):
     return schemas.ConnectTokenOut(connect_token=token)
 
 
+def _disparar_refresh_meupluggy(background_tasks: BackgroundTasks) -> None:
+    """Dispara (sem esperar) o serviço isolado `meupluggy-refresher`, que
+    atualiza as conexões no meu.pluggy.ai (login por email + clique em
+    "Atualizar" em cada banco) — nosso `PATCH /items/{id}` sozinho não
+    força isso pro Conector 200/MeuPluggy, que é OAuth (ver
+    meupluggy-refresher/README.md). Só roda se configurado; sem isso, o
+    sync normal (lê o que já estiver em cache na Pluggy) segue igual.
+    A atualização em si leva ~1-2 min, então não deixa os dados frescos
+    NESTE sync — só no próximo (job de 20 min ou próximo clique)."""
+    url = os.getenv("MEUPLUGGY_REFRESHER_URL")
+    token = os.getenv("MEUPLUGGY_REFRESHER_TOKEN")
+    if not (url and token):
+        return
+    background_tasks.add_task(_chamar_refresher, url, token)
+
+
+def _chamar_refresher(url: str, token: str) -> None:
+    try:
+        resp = httpx.post(
+            f"{url.rstrip('/')}/atualizar", headers={"Authorization": f"Bearer {token}"}, timeout=10
+        )
+        logger.info("meupluggy-refresher disparado: %s", resp.status_code)
+    except Exception:
+        logger.exception("Falha ao disparar o meupluggy-refresher (não bloqueia o sync normal).")
+
+
 @router.post("/sync", response_model=schemas.SyncResultOut)
-def sync_accounts(payload: schemas.SyncRequest | None = None, db: DbSession = Depends(get_db)):
+def sync_accounts(
+    background_tasks: BackgroundTasks,
+    payload: schemas.SyncRequest | None = None,
+    db: DbSession = Depends(get_db),
+):
     """Busca contas/transações na Pluggy e faz upsert local.
 
     - Se `itemId` for passado no corpo, é porque o Pluggy Connect Widget
@@ -99,6 +133,7 @@ def sync_accounts(payload: schemas.SyncRequest | None = None, db: DbSession = De
     - Sem `itemId` (clique em "atualizar agora" na tela Contas), sincroniza
       TODOS os itens já conectados — não só o primeiro que aparecer, senão
       quem tem mais de um banco conectado nunca vê os outros atualizarem.
+      Também dispara (em background) o meupluggy-refresher, se configurado.
     - Sem nenhum item conectado ainda, orienta a conectar via widget
       primeiro (endpoint `/accounts/connect-token`)."""
     _require_pluggy_configurado()
@@ -125,6 +160,7 @@ def sync_accounts(payload: schemas.SyncRequest | None = None, db: DbSession = De
             "Pluggy Connect Widget (GET connect-token) antes de sincronizar.",
         )
 
+    _disparar_refresh_meupluggy(background_tasks)
     resultados = pluggy_sync.sync_all_items(db)
     falhas = {iid: err for iid, err in resultados.items() if err is not None}
     contas_atualizadas = (
