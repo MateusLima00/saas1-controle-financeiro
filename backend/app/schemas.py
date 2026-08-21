@@ -237,6 +237,56 @@ class SubscriptionOut(SubscriptionBase):
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 
+# -- Compras parceladas -------------------------------------------------------------
+
+
+class ParcelaOut(BaseModel):
+    id: int
+    numero: int
+    valor: float
+    data_vencimento: dt.date = Field(serialization_alias="dataVencimento", validation_alias="dataVencimento")
+    paga: bool
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CompraParceladaCreate(BaseModel):
+    descricao: str
+    valor_total: float = Field(serialization_alias="valorTotal", validation_alias="valorTotal")
+    num_parcelas: int = Field(serialization_alias="numParcelas", validation_alias="numParcelas")
+    conta_id: int = Field(serialization_alias="contaId", validation_alias="contaId")
+    categoria_id: int | None = Field(None, serialization_alias="categoriaId", validation_alias="categoriaId")
+    data_primeira_parcela: dt.date = Field(
+        serialization_alias="dataPrimeiraParcela", validation_alias="dataPrimeiraParcela"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class CompraParceladaOut(BaseModel):
+    id: int
+    descricao: str
+    valor_total: float = Field(serialization_alias="valorTotal", validation_alias="valorTotal")
+    num_parcelas: int = Field(serialization_alias="numParcelas", validation_alias="numParcelas")
+    conta_id: int = Field(serialization_alias="contaId", validation_alias="contaId")
+    conta: str | None = None
+    categoria_id: int | None = Field(None, serialization_alias="categoriaId", validation_alias="categoriaId")
+    categoria: str | None = None
+    parcelas: list[ParcelaOut] = []
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class FaturaCartaoOut(BaseModel):
+    conta_id: int = Field(serialization_alias="contaId", validation_alias="contaId")
+    conta: str
+    totalFechado: float  # transações do mês já lançadas (materializadas) nesse cartão
+    totalPendente: float  # parcelas futuras com vencimento no mês, ainda não materializadas
+    totalMes: float  # soma dos dois — visão de "quanto vai fechar esse mês"
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 # -- Import / Sync -------------------------------------------------------------
 
 

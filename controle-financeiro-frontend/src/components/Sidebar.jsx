@@ -8,6 +8,7 @@ import {
   TrendingUp,
   CalendarClock,
   Wallet2,
+  CreditCard,
   LogOut,
   X,
 } from "lucide-react";
@@ -30,6 +31,7 @@ const itensMenu = [
   { label: "Metas e planos", path: "/metas", Icone: Target },
   { label: "Investimentos", path: "/investimentos", Icone: TrendingUp },
   { label: "Assinaturas", path: "/assinaturas", Icone: Wallet2 },
+  { label: "Cartão/Parcelamentos", path: "/parcelamentos", Icone: CreditCard },
   { label: "Categorias", path: "/categorias", Icone: Tags },
   { label: "Contas", path: "/contas", Icone: Landmark },
 ];

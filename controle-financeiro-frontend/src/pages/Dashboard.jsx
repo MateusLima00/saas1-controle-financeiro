@@ -42,6 +42,8 @@ export default function Dashboard() {
   const [metas, setMetas] = useState([]);
   const [investimentos, setInvestimentos] = useState([]);
   const [assinaturas, setAssinaturas] = useState([]);
+  const [faturas, setFaturas] = useState([]);
+  const [parcelamentos, setParcelamentos] = useState([]);
 
   function carregarDados() {
     return Promise.all([
@@ -52,15 +54,31 @@ export default function Dashboard() {
       api.get("/goals"),
       api.get("/investments"),
       api.get("/subscriptions"),
-    ]).then(([resumoData, transacoesData, gastosData, evolucaoData, metasData, investimentosData, assinaturasData]) => {
-      setResumo(resumoData);
-      setTransacoes(transacoesData);
-      setGastosPorCategoria(gastosData);
-      setEvolucao(evolucaoData);
-      setMetas(metasData);
-      setInvestimentos(investimentosData);
-      setAssinaturas(assinaturasData);
-    });
+      api.get("/parcelamentos/fatura"),
+      api.get("/parcelamentos"),
+    ]).then(
+      ([
+        resumoData,
+        transacoesData,
+        gastosData,
+        evolucaoData,
+        metasData,
+        investimentosData,
+        assinaturasData,
+        faturasData,
+        parcelamentosData,
+      ]) => {
+        setResumo(resumoData);
+        setTransacoes(transacoesData);
+        setGastosPorCategoria(gastosData);
+        setEvolucao(evolucaoData);
+        setMetas(metasData);
+        setInvestimentos(investimentosData);
+        setAssinaturas(assinaturasData);
+        setFaturas(faturasData);
+        setParcelamentos(parcelamentosData);
+      }
+    );
   }
 
   useEffect(() => {
@@ -97,6 +115,13 @@ export default function Dashboard() {
 
   // Resumo de assinaturas: soma mensal
   const totalAssinaturas = assinaturas.reduce((s, a) => s + a.valor, 0);
+
+  // Resumo de fatura de cartão: soma de todos os cartões + data da
+  // próxima parcela ainda pendente (a mais próxima entre todas as compras).
+  const totalFaturaMes = faturas.reduce((s, f) => s + f.totalMes, 0);
+  const proximaParcelaPendente = parcelamentos
+    .flatMap((c) => c.parcelas.filter((p) => !p.paga))
+    .sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))[0];
 
   function handleAtualizarAgora() {
     if (atualizando) return;
@@ -204,8 +229,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Investimentos + Assinaturas lado a lado, resumidos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Investimentos + Assinaturas + Cartão/Parcelamentos, resumidos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <Link to="/investimentos" className="bg-surface rounded-card border border-border p-4 hover:border-accent/50 transition-colors">
           <div className="flex justify-between items-center mb-2">
             <div className="text-xs text-text-secondary">Investimentos</div>
@@ -225,6 +250,19 @@ export default function Dashboard() {
           </div>
           <div className="text-xl font-medium text-danger">{formatCurrency(totalAssinaturas)}/mês</div>
           <div className="text-xs text-text-muted mt-1">{assinaturas.length} assinaturas ativas</div>
+        </Link>
+
+        <Link to="/parcelamentos" className="bg-surface rounded-card border border-border p-4 hover:border-accent/50 transition-colors">
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-xs text-text-secondary">Cartão/Parcelamentos</div>
+            <span className="text-xs text-accent">Ver todos</span>
+          </div>
+          <div className="text-xl font-medium text-danger">{formatCurrency(totalFaturaMes)}</div>
+          <div className="text-xs text-text-muted mt-1">
+            {proximaParcelaPendente
+              ? `próxima parcela em ${formatDateShort(proximaParcelaPendente.dataVencimento)}`
+              : "sem parcelas pendentes"}
+          </div>
         </Link>
       </div>
     </div>

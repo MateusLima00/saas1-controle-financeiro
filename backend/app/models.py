@@ -123,3 +123,38 @@ class Subscription(Base):
     valor = Column(Float, nullable=False)
     ciclo = Column(String, default="Mensal")
     proxima_cobranca = Column(String, nullable=True)
+
+
+class CompraParcelada(Base):
+    __tablename__ = "compras_parceladas"
+
+    id = Column(Integer, primary_key=True)
+    descricao = Column(String, nullable=False)
+    valor_total = Column(Float, nullable=False)
+    num_parcelas = Column(Integer, nullable=False)
+    conta_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
+    categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    criada_em = Column(Date, nullable=False, default=hoje)
+
+    conta = relationship("Account")
+    categoria = relationship("Category")
+    parcelas = relationship(
+        "Parcela", back_populates="compra", cascade="all, delete-orphan", order_by="Parcela.numero"
+    )
+
+
+class Parcela(Base):
+    __tablename__ = "parcelas"
+
+    id = Column(Integer, primary_key=True)
+    compra_id = Column(Integer, ForeignKey("compras_parceladas.id"), nullable=False)
+    numero = Column(Integer, nullable=False)  # 1..num_parcelas
+    valor = Column(Float, nullable=False)
+    data_vencimento = Column(Date, nullable=False)
+    # Preenchido quando a parcela vira uma transação de verdade (data de
+    # vencimento chegou) — até lá é só um compromisso futuro, não conta em
+    # nenhum saldo/gasto.
+    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
+
+    compra = relationship("CompraParcelada", back_populates="parcelas")
+    transacao = relationship("Transaction")

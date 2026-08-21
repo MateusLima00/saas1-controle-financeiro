@@ -16,6 +16,7 @@ from .routers import (
     goals,
     integrations,
     investments,
+    parcelamentos,
     subscriptions,
     telegram,
     transactions,
@@ -45,6 +46,7 @@ app.include_router(subscriptions.router)
 app.include_router(dashboard.router)
 app.include_router(telegram.router)
 app.include_router(integrations.router)
+app.include_router(parcelamentos.router)
 
 
 @app.get("/health")
@@ -55,6 +57,7 @@ def health():
 @app.on_event("startup")
 def _iniciar_scheduler():
     scheduler.start()
+    scheduler.materializar_parcelas_na_subida()
 
 
 @app.on_event("shutdown")
