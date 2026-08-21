@@ -9,6 +9,7 @@ from ..auth import require_service_token
 from ..categorization import categoria_para_descricao, extrair_palavra_chave
 from ..database import get_db
 from ..services.import_service import importar_extrato
+from ..services.notifications import notify_goal_achieved
 from ..timezone_utils import hoje
 from .dashboard import gastos_por_categoria, resumo
 from .transactions import _to_out
@@ -168,18 +169,63 @@ def resumo_para_nero(db: DbSession = Depends(get_db)):
 
 
 class NeroMetaOut(BaseModel):
+    id: int
     nome: str
     valorAtual: float
     valorAlvo: float
     prazo: str | None = None
 
 
+def _meta_para_nero(m: models.Goal) -> NeroMetaOut:
+    return NeroMetaOut(id=m.id, nome=m.nome, valorAtual=m.valor_atual, valorAlvo=m.valor_alvo, prazo=m.prazo)
+
+
 @router.get("/nero/metas", response_model=list[NeroMetaOut])
 def listar_metas_para_nero(db: DbSession = Depends(get_db)):
-    metas = db.query(models.Goal).all()
-    return [
-        NeroMetaOut(nome=m.nome, valorAtual=m.valor_atual, valorAlvo=m.valor_alvo, prazo=m.prazo) for m in metas
-    ]
+    return [_meta_para_nero(m) for m in db.query(models.Goal).all()]
+
+
+class NeroMetaCreateIn(BaseModel):
+    nome: str
+    valorAlvo: float
+    prazo: str | None = None
+
+
+@router.post("/nero/metas", response_model=NeroMetaOut, status_code=201)
+def criar_meta_do_nero(payload: NeroMetaCreateIn, db: DbSession = Depends(get_db)):
+    meta = models.Goal(nome=payload.nome, valor_alvo=payload.valorAlvo, valor_atual=0, prazo=payload.prazo)
+    db.add(meta)
+    db.commit()
+    db.refresh(meta)
+    return _meta_para_nero(meta)
+
+
+class NeroMetaAporteIn(BaseModel):
+    valor: float
+
+
+@router.post("/nero/metas/{meta_id}/aportes", response_model=NeroMetaOut)
+def aportar_meta_do_nero(meta_id: int, payload: NeroMetaAporteIn, db: DbSession = Depends(get_db)):
+    meta = db.query(models.Goal).filter(models.Goal.id == meta_id).first()
+    if not meta:
+        raise HTTPException(404, "Meta não encontrada")
+    ja_batida_antes = meta.valor_atual >= meta.valor_alvo
+    meta.valor_atual = (meta.valor_atual or 0) + payload.valor
+    db.add(models.GoalContribution(goal_id=meta.id, valor=payload.valor))
+    db.commit()
+    db.refresh(meta)
+    if not ja_batida_antes and meta.valor_atual >= meta.valor_alvo:
+        notify_goal_achieved(meta)
+    return _meta_para_nero(meta)
+
+
+@router.delete("/nero/metas/{meta_id}", status_code=204)
+def apagar_meta_do_nero(meta_id: int, db: DbSession = Depends(get_db)):
+    meta = db.query(models.Goal).filter(models.Goal.id == meta_id).first()
+    if not meta:
+        raise HTTPException(404, "Meta não encontrada")
+    db.delete(meta)
+    db.commit()
 
 
 class NeroAssinaturaOut(BaseModel):

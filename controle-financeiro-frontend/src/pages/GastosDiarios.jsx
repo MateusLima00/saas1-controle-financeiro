@@ -31,7 +31,12 @@ export default function GastosDiarios() {
       .then(([categoriasData, transacoesData]) => {
         if (!ativo) return;
         setCategorias(categoriasData);
-        setLancamentos(transacoesData.filter((t) => t.tipo === "debit" && t.origem === "manual").slice(0, 20));
+        // "manual" (lançado aqui na tela) e "nero" (falado/narrado pro bot
+        // no Telegram) são os dois jeitos de registrar um gasto do dia a
+        // dia sem vir de extrato bancário — os dois aparecem aqui.
+        setLancamentos(
+          transacoesData.filter((t) => t.tipo === "debit" && (t.origem === "manual" || t.origem === "nero")).slice(0, 20)
+        );
         setNovo((n) => ({ ...n, categoriaId: categoriasData[0]?.id ?? "" }));
       })
       .catch((err) => ativo && setErro(err.message || "Não foi possível carregar os dados."))
