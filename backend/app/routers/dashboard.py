@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session as DbSession
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
+from ..timezone_utils import hoje as _hoje
 
 router = APIRouter(
     prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(get_current_user)]
@@ -52,7 +53,7 @@ def _saldo_ao_final_do_mes(db: DbSession, saldo_atual: float, year: int, month: 
 
 @router.get("/resumo", response_model=schemas.ResumoOut)
 def resumo(db: DbSession = Depends(get_db)):
-    hoje = dt.date.today()
+    hoje = _hoje()
     mes_anterior = hoje.month - 1 or 12
     ano_mes_anterior = hoje.year if hoje.month > 1 else hoje.year - 1
 
@@ -79,7 +80,7 @@ def resumo(db: DbSession = Depends(get_db)):
 
 @router.get("/gastos-por-categoria", response_model=list[schemas.GastoPorCategoriaOut])
 def gastos_por_categoria(db: DbSession = Depends(get_db)):
-    hoje = dt.date.today()
+    hoje = _hoje()
     first, last = _month_bounds(hoje.year, hoje.month)
 
     linhas = (
@@ -105,7 +106,7 @@ def gastos_por_categoria(db: DbSession = Depends(get_db)):
 
 @router.get("/evolucao", response_model=list[schemas.EvolucaoMesOut])
 def evolucao(db: DbSession = Depends(get_db), meses: int = 6):
-    hoje = dt.date.today()
+    hoje = _hoje()
     saldo_total = db.query(func.coalesce(func.sum(models.Account.saldo), 0)).scalar() or 0
 
     meses_alvo: list[tuple[int, int]] = []

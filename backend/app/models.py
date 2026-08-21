@@ -12,6 +12,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from .database import Base
+from .timezone_utils import hoje
 
 
 class User(Base):
@@ -61,7 +62,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True)
-    data = Column(Date, nullable=False, default=dt.date.today)
+    data = Column(Date, nullable=False, default=hoje)
     descricao = Column(String, nullable=False)
     categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     conta_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
@@ -96,7 +97,7 @@ class GoalContribution(Base):
 
     id = Column(Integer, primary_key=True)
     goal_id = Column(Integer, ForeignKey("goals.id"), nullable=False)
-    data = Column(Date, nullable=False, default=dt.date.today)
+    data = Column(Date, nullable=False, default=hoje)
     valor = Column(Float, nullable=False)
 
     meta = relationship("Goal", back_populates="historico")

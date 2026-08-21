@@ -9,6 +9,7 @@ from ..auth import get_current_user
 from ..database import get_db
 from ..import_parsers import parse_csv, parse_ofx
 from ..services import pluggy_client, pluggy_sync
+from ..timezone_utils import hoje
 
 router = APIRouter(
     prefix="/accounts", tags=["accounts"], dependencies=[Depends(get_current_user)]
@@ -187,7 +188,7 @@ async def import_extrato(account_id: int, file: UploadFile, db: DbSession = Depe
         )
         importadas += 1
 
-    account.ultima_sync = dt.date.today().isoformat()
+    account.ultima_sync = hoje().isoformat()
     db.commit()
 
     return schemas.ImportResultOut(

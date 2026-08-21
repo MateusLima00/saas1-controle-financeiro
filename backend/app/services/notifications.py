@@ -18,6 +18,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session as DbSession
 
 from .. import models
+from ..timezone_utils import hoje as _hoje
 from .email_service import send_email
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ UNUSUAL_SPEND_MULTIPLIER = _float_env("UNUSUAL_SPEND_MULTIPLIER", 2)
 def notify_sync_failure(item_id: str, erro: str) -> None:
     send_email(
         "⚠️ Falha na sincronização com a Pluggy",
-        f"O sync automático do item {item_id} falhou hoje ({dt.date.today().isoformat()}).\n\n"
+        f"O sync automático do item {item_id} falhou hoje ({_hoje().isoformat()}).\n\n"
         f"Erro: {erro}\n\n"
         "Verifique se o banco continua conectado (tela Contas) — pode ser "
         "necessário reconectar pelo widget.",
@@ -57,7 +58,7 @@ def notify_goal_achieved(goal: "models.Goal") -> None:
 
 def run_daily_digest(db: DbSession) -> None:
     try:
-        hoje = dt.date.today()
+        hoje = _hoje()
         ontem = hoje - dt.timedelta(days=1)
 
         partes = [_resumo(db)]
@@ -86,7 +87,7 @@ def run_daily_digest(db: DbSession) -> None:
 
 def _resumo(db: DbSession) -> str:
     saldo_total = db.query(func.coalesce(func.sum(models.Account.saldo), 0)).scalar() or 0
-    hoje = dt.date.today()
+    hoje = _hoje()
     inicio_mes = hoje.replace(day=1)
     gasto_mes = (
         db.query(func.coalesce(func.sum(models.Transaction.valor), 0))

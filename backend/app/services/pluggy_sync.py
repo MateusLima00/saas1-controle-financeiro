@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from .. import models
 from ..categorization import categoria_para_descricao
+from ..timezone_utils import hoje
 from . import pluggy_client
 
 _PLUGGY_SUBTYPE_PARA_TIPO = {
@@ -67,7 +68,7 @@ def _preencher_campos(account: models.Account, item_id: str, conta_pluggy: dict)
     account.tipo = _PLUGGY_SUBTYPE_PARA_TIPO.get(subtype, "checking")
     account.saldo = conta_pluggy.get("balance") or 0
     account.status = "connected"
-    account.ultima_sync = dt.date.today().isoformat()
+    account.ultima_sync = hoje().isoformat()
     account.pluggy_item_id = item_id
 
 
