@@ -101,20 +101,23 @@ def list_transactions(account_id: str, page_size: int = 500) -> list[dict]:
     Pluggy aplica um período padrão mais curto. 12 meses é o teto que o
     Open Finance normalmente autoriza pra maioria dos bancos/conectores
     (histórico mais antigo que isso costuma não estar disponível nem do
-    lado do banco, independente do que a gente pedir aqui)."""
+    lado do banco, independente do que a gente pedir aqui).
+
+    `GET /transactions` (paginação por `page`/`totalPages`) foi
+    descontinuado pela Pluggy (410 ENDPOINT_DEPRECATED) — usa `GET
+    /v2/transactions`, que pagina por `cursor` em vez de número de
+    página."""
     desde = (dt.date.today() - dt.timedelta(days=365)).isoformat()
 
     resultados: list[dict] = []
-    page = 1
+    cursor: str | None = None
     while True:
-        data = _request(
-            "GET",
-            "/transactions",
-            params={"accountId": account_id, "pageSize": page_size, "page": page, "from": desde},
-        )
+        params = {"accountId": account_id, "pageSize": page_size, "from": desde}
+        if cursor:
+            params["cursor"] = cursor
+        data = _request("GET", "/v2/transactions", params=params)
         resultados.extend(data.get("results", []))
-        total_pages = data.get("totalPages", 1)
-        if page >= total_pages:
+        cursor = data.get("cursor") or data.get("nextCursor")
+        if not cursor:
             break
-        page += 1
     return resultados
