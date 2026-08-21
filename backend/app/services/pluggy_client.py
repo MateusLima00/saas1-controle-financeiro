@@ -82,6 +82,19 @@ def get_item(item_id: str) -> dict:
     return _request("GET", f"/items/{item_id}")
 
 
+def trigger_item_update(item_id: str) -> dict:
+    """Manda a Pluggy buscar dado novo na fonte (banco/MeuPluggy) pro
+    item, em vez de só ler o que já está em cache do lado da Pluggy.
+
+    Sem isso, `list_accounts`/`list_transactions` só devolvem o último
+    snapshot que a Pluggy já tinha — que só fica novo quando ALGUÉM
+    força um refresh (ex: o usuário clicando "atualizar" manualmente no
+    meu.pluggy.ai, no caso do Conector 200/MeuPluggy, que é uma ponte
+    pra lá). `PATCH /items/{id}` é o mesmo request que o próprio Pluggy
+    Connect Widget dispara ao reconectar/atualizar um item."""
+    return _request("PATCH", f"/items/{item_id}", json={})
+
+
 def delete_item(item_id: str) -> None:
     """Desconecta o item na Pluggy (não afeta a conta bancária real, só a
     autorização de leitura). Chamado quando o usuário exclui, no nosso

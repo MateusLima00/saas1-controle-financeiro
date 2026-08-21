@@ -19,8 +19,16 @@ _PLUGGY_SUBTYPE_PARA_TIPO = {
 
 
 def sync_item(db: DbSession, item_id: str) -> int:
-    """Sincroniza todas as contas de um item da Pluggy. Retorna quantas
-    contas foram atualizadas. Não faz commit — quem chama decide quando."""
+    """Sincroniza todas as contas de um item da Pluggy (lê o que já está
+    em cache do lado da Pluggy). Retorna quantas contas foram
+    atualizadas. Não faz commit — quem chama decide quando.
+
+    NÃO dispara `trigger_item_update` aqui — essa função também é
+    chamada pelo webhook em reação a um evento `item/updated`; disparar
+    outro update aqui criaria um loop (update → webhook → update →
+    webhook...). Quem inicia um sync "do zero" (job periódico, botão
+    manual) deve chamar `pluggy_client.trigger_item_update` antes, via
+    `sync_all_items`."""
     contas_pluggy = pluggy_client.list_accounts(item_id)
 
     contas_atualizadas = 0
@@ -53,6 +61,19 @@ def sync_all_items(db: DbSession) -> dict[str, Exception | None]:
     resultados: dict[str, Exception | None] = {}
     for item_id in distinct_item_ids(db):
         try:
+            # Manda a Pluggy buscar dado novo na fonte antes de ler — sem
+            # isso, list_accounts/list_transactions só devolvem o último
+            # snapshot já em cache (só ficava novo quando alguém forçava
+            # refresh manual no meu.pluggy.ai, no caso do Conector
+            # 200/MeuPluggy, que é uma ponte pra lá). A atualização é
+            # assíncrona do lado da Pluggy — pode não refletir 100% nesta
+            # mesma leitura, mas o próximo sync (20 min depois, ou o
+            # webhook quando a Pluggy termina) pega o dado já atualizado.
+            try:
+                pluggy_client.trigger_item_update(item_id)
+            except pluggy_client.PluggyError:
+                pass  # item pode já estar "UPDATING"/expirado — segue lendo o que tiver
+
             sync_item(db, item_id)
             db.commit()
             resultados[item_id] = None
