@@ -1,3 +1,5 @@
+import datetime as dt
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DbSession
 
@@ -21,14 +23,25 @@ def _to_out(t: models.Transaction) -> schemas.TransactionOut:
         tipo=t.tipo,
         origem=t.origem,
         categoria=t.categoria.nome if t.categoria else None,
+        conta=t.conta.banco if t.conta else None,
     )
 
 
 @router.get("", response_model=list[schemas.TransactionOut])
-def list_transactions(db: DbSession = Depends(get_db)):
-    transacoes = (
-        db.query(models.Transaction).order_by(models.Transaction.data.desc()).all()
-    )
+def list_transactions(
+    db: DbSession = Depends(get_db),
+    de: dt.date | None = None,
+    ate: dt.date | None = None,
+    conta_id: int | None = None,
+):
+    query = db.query(models.Transaction)
+    if de is not None:
+        query = query.filter(models.Transaction.data >= de)
+    if ate is not None:
+        query = query.filter(models.Transaction.data <= ate)
+    if conta_id is not None:
+        query = query.filter(models.Transaction.conta_id == conta_id)
+    transacoes = query.order_by(models.Transaction.data.desc()).all()
     return [_to_out(t) for t in transacoes]
 
 

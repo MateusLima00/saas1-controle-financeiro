@@ -109,6 +109,7 @@ class TransactionUpdate(BaseModel):
 class TransactionOut(TransactionBase):
     id: int
     categoria: str | None = None
+    conta: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

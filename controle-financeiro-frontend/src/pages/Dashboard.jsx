@@ -81,14 +81,10 @@ export default function Dashboard() {
 
   const ultimasTransacoes = transacoes.slice(0, 3).map((t) => ({ ...t, data: formatDateShort(t.data) }));
 
-  const gastoMesReal = transacoes
-    .filter((t) => t.tipo === "debit")
-    .reduce((soma, t) => soma + Math.abs(t.valor), 0);
-
   const tendenciaSaldo = calcularTendencia(resumo.saldoTotal, resumo.saldoMesAnterior);
   // Gasto subir é uma tendência ruim, mesmo com número positivo - por isso
   // inverte o sinal de "positiva" (verde) aqui.
-  const tendenciaGasto = calcularTendencia(gastoMesReal, resumo.gastoMesAnterior);
+  const tendenciaGasto = calcularTendencia(resumo.gastoMes, resumo.gastoMesAnterior);
   tendenciaGasto.positiva = !tendenciaGasto.positiva;
 
   // Resumo de investimentos: total investido x valor atual
@@ -146,7 +142,7 @@ export default function Dashboard() {
         />
         <MetricCard
           label="Gasto do mês"
-          value={formatCurrency(gastoMesReal)}
+          value={formatCurrency(resumo.gastoMes)}
           color="text-danger"
           tendencia={tendenciaGasto.texto}
           tendenciaPositiva={tendenciaGasto.positiva}
