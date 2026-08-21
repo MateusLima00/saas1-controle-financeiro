@@ -41,37 +41,7 @@ def distinct_item_ids(db: DbSession) -> list[str]:
     return [item_id for (item_id,) in linhas]
 
 
-def _find_or_create_account(db: DbSession, pluggy_account_id: str) -> models.Account:
-    account = (
-        db.query(models.Account)
-        .filter(models.Account.pluggy_account_id == pluggy_account_id)
-        .first()
-    )
-    if account:
-        return account
-
-    account = models.Account(pluggy_account_id=pluggy_account_id, origem="pluggy")
-    db.add(account)
-    try:
-        with db.begin_nested():
-            db.flush()
-    except IntegrityError:
-        # Outra chamada concorrente (ex: onSuccess do widget + sync manual ao
-        # mesmo tempo) criou essa mesma conta entre nosso SELECT e o INSERT.
-        # O savepoint (begin_nested) isola esse conflito sem derrubar as
-        # outras contas já sincronizadas nesta mesma transação.
-        account = (
-            db.query(models.Account)
-            .filter(models.Account.pluggy_account_id == pluggy_account_id)
-            .first()
-        )
-    return account
-
-
-def _upsert_account(db: DbSession, item_id: str, conta_pluggy: dict) -> models.Account:
-    pluggy_account_id = conta_pluggy["id"]
-    account = _find_or_create_account(db, pluggy_account_id)
-
+def _preencher_campos(account: models.Account, item_id: str, conta_pluggy: dict) -> None:
     subtype = conta_pluggy.get("subtype") or ""
     account.banco = conta_pluggy.get("name") or account.banco or "Conta Pluggy"
     account.tipo = _PLUGGY_SUBTYPE_PARA_TIPO.get(subtype, "checking")
@@ -79,7 +49,45 @@ def _upsert_account(db: DbSession, item_id: str, conta_pluggy: dict) -> models.A
     account.status = "connected"
     account.ultima_sync = dt.date.today().isoformat()
     account.pluggy_item_id = item_id
-    db.flush()
+
+
+def _upsert_account(db: DbSession, item_id: str, conta_pluggy: dict) -> models.Account:
+    pluggy_account_id = conta_pluggy["id"]
+    account = (
+        db.query(models.Account)
+        .filter(models.Account.pluggy_account_id == pluggy_account_id)
+        .first()
+    )
+    if account:
+        _preencher_campos(account, item_id, conta_pluggy)
+        db.flush()
+        return account
+
+    # Conta nova: preenche os campos (inclusive os NOT NULL) ANTES de
+    # flushar — flushar um objeto "vazio" e só depois setar os campos
+    # dá NotNullViolation. O insert em si vai num savepoint (begin_nested)
+    # pra isolar uma eventual corrida (outra chamada concorrente criando a
+    # mesma conta entre nosso SELECT e o INSERT) sem derrubar as outras
+    # contas já sincronizadas nesta mesma transação.
+    account = models.Account(pluggy_account_id=pluggy_account_id, origem="pluggy")
+    _preencher_campos(account, item_id, conta_pluggy)
+    db.add(account)
+    try:
+        with db.begin_nested():
+            db.flush()
+    except IntegrityError:
+        # Expunge é essencial aqui: sem isso o autoflush do próximo
+        # db.query(...) tentaria flushar esse mesmo objeto quebrado de
+        # novo, fora de qualquer savepoint, corrompendo a transação
+        # inteira (PendingRollbackError daí pra frente).
+        db.expunge(account)
+        account = (
+            db.query(models.Account)
+            .filter(models.Account.pluggy_account_id == pluggy_account_id)
+            .first()
+        )
+        _preencher_campos(account, item_id, conta_pluggy)
+        db.flush()
     return account
 
 
