@@ -107,7 +107,7 @@ def buscar_link_de_login(imap_email: str, imap_senha_app: str) -> str:
 
 
 def logar(page: Page, meu_pluggy_email: str, imap_email: str, imap_senha_app: str) -> None:
-    page.goto("https://meu.pluggy.ai/", wait_until="load", timeout=30000)
+    page.goto("https://meu.pluggy.ai/", wait_until="domcontentloaded", timeout=60000)
     page.click("text=Entrar")
     page.wait_for_selector('input[type="email"]', timeout=15000)
     page.fill('input[type="email"]', meu_pluggy_email)
@@ -116,12 +116,12 @@ def logar(page: Page, meu_pluggy_email: str, imap_email: str, imap_senha_app: st
 
     link = buscar_link_de_login(imap_email, imap_senha_app)
     print("Link de login encontrado, autenticando...")
-    page.goto(link, wait_until="load", timeout=30000)
+    page.goto(link, wait_until="domcontentloaded", timeout=60000)
     page.wait_for_timeout(3000)
 
 
 def listar_links_de_conexoes(page: Page) -> list[str]:
-    page.goto("https://meu.pluggy.ai/connections", wait_until="load", timeout=30000)
+    page.goto("https://meu.pluggy.ai/connections", wait_until="domcontentloaded", timeout=60000)
     page.wait_for_timeout(2000)
     hrefs = {
         a.get_attribute("href")
@@ -133,7 +133,7 @@ def listar_links_de_conexoes(page: Page) -> list[str]:
 
 def atualizar_conexao(page: Page, href: str) -> bool:
     url = f"https://meu.pluggy.ai{href}"
-    page.goto(url, wait_until="load", timeout=30000)
+    page.goto(url, wait_until="domcontentloaded", timeout=60000)
     page.wait_for_timeout(1000)
     try:
         page.click("text=Atualizar", timeout=10000)
