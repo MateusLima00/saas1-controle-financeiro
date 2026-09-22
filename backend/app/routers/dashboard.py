@@ -104,6 +104,116 @@ def gastos_por_categoria(db: DbSession = Depends(get_db)):
     ]
 
 
+@router.get("/orcamento", response_model=list[schemas.OrcamentoGrupoOut])
+def orcamento(db: DbSession = Depends(get_db), ano: int | None = None, mes: int | None = None):
+    """Previsto x Realizado por categoria, agrupado (receita/fixo/
+    investimento/doacao/passivo) — o mesmo que a área central da planilha
+    de equilíbrio financeiro: cada categoria tem um valor Previsto (fixo,
+    cadastrado na categoria) e um Realizado (soma automática das
+    transações do mês daquela categoria, equivalente ao SUMIF da
+    planilha)."""
+    hoje = _hoje()
+    ano = ano or hoje.year
+    mes = mes or hoje.month
+    first, last = _month_bounds(ano, mes)
+
+    realizado_por_categoria = dict(
+        db.query(
+            models.Transaction.categoria_id,
+            func.coalesce(func.sum(func.abs(models.Transaction.valor)), 0),
+        )
+        .filter(models.Transaction.data >= first, models.Transaction.data <= last)
+        .group_by(models.Transaction.categoria_id)
+        .all()
+    )
+
+    categorias = db.query(models.Category).order_by(models.Category.grupo, models.Category.nome).all()
+
+    grupos: dict[str, list[schemas.OrcamentoCategoriaOut]] = {}
+    for categoria in categorias:
+        realizado = realizado_por_categoria.get(categoria.id, 0) or 0
+        grupos.setdefault(categoria.grupo or "fixo", []).append(
+            schemas.OrcamentoCategoriaOut(
+                categoriaId=categoria.id,
+                categoria=categoria.nome,
+                cor=categoria.cor,
+                grupo=categoria.grupo or "fixo",
+                previsto=categoria.previsto or 0,
+                realizado=realizado,
+            )
+        )
+
+    ordem_grupos = ["receita", "fixo", "investimento", "doacao", "passivo"]
+    resultado = []
+    for grupo in ordem_grupos:
+        itens = grupos.pop(grupo, [])
+        if not itens:
+            continue
+        resultado.append(
+            schemas.OrcamentoGrupoOut(
+                grupo=grupo,
+                previsto=sum(c.previsto for c in itens),
+                realizado=sum(c.realizado for c in itens),
+                categorias=itens,
+            )
+        )
+    # Qualquer grupo fora da lista conhecida (categoria antiga sem grupo
+    # válido) ainda aparece, só entra depois dos grupos padrão.
+    for grupo, itens in grupos.items():
+        resultado.append(
+            schemas.OrcamentoGrupoOut(
+                grupo=grupo,
+                previsto=sum(c.previsto for c in itens),
+                realizado=sum(c.realizado for c in itens),
+                categorias=itens,
+            )
+        )
+    return resultado
+
+
+@router.get("/saldo-periodo", response_model=schemas.SaldoPeriodoOut)
+def saldo_periodo(db: DbSession = Depends(get_db), ano: int | None = None, mes: int | None = None):
+    """Saldo = Receita realizada - Despesa realizada do mês (fórmula
+    `=F17-F24` da planilha), calculado a partir das categorias com
+    grupo="receita" vs os demais grupos — diferente de `/resumo`, que
+    mostra o saldo em conta (patrimônio), não o fluxo do mês."""
+    hoje = _hoje()
+    ano = ano or hoje.year
+    mes = mes or hoje.month
+    first, last = _month_bounds(ano, mes)
+
+    def _soma(grupo_filtro, receita: bool):
+        previsto = (
+            db.query(func.coalesce(func.sum(models.Category.previsto), 0))
+            .filter(grupo_filtro)
+            .scalar()
+            or 0
+        )
+        realizado = (
+            db.query(func.coalesce(func.sum(func.abs(models.Transaction.valor)), 0))
+            .join(models.Category, models.Transaction.categoria_id == models.Category.id)
+            .filter(
+                grupo_filtro,
+                models.Transaction.data >= first,
+                models.Transaction.data <= last,
+            )
+            .scalar()
+            or 0
+        )
+        return previsto, realizado
+
+    receita_previsto, receita_realizado = _soma(models.Category.grupo == "receita", receita=True)
+    despesa_previsto, despesa_realizado = _soma(models.Category.grupo != "receita", receita=False)
+
+    return schemas.SaldoPeriodoOut(
+        receitaPrevista=receita_previsto,
+        receitaRealizada=receita_realizado,
+        despesaPrevista=despesa_previsto,
+        despesaRealizada=despesa_realizado,
+        saldo=receita_realizado - despesa_realizado,
+    )
+
+
 @router.get("/evolucao", response_model=list[schemas.EvolucaoMesOut])
 def evolucao(db: DbSession = Depends(get_db), meses: int = 6):
     hoje = _hoje()

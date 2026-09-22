@@ -15,7 +15,16 @@ import { api } from "../api/client";
 // uma já existente — "modo" controla qual dos dois é. CRUD contra
 // /categories.
 // -----------------------------------------------------------------------
-const CATEGORIA_VAZIA = { nome: "", cor: CORES_DISPONIVEIS[0].valor, regra: "" };
+const CATEGORIA_VAZIA = { nome: "", cor: CORES_DISPONIVEIS[0].valor, regra: "", grupo: "fixo", previsto: "", provedor: "" };
+
+// Espelha os 4 blocos da planilha de equilíbrio financeiro + receitas.
+const GRUPOS = [
+  { valor: "receita", label: "Receita" },
+  { valor: "fixo", label: "Gastos fixos" },
+  { valor: "investimento", label: "Investimentos" },
+  { valor: "doacao", label: "Doações" },
+  { valor: "passivo", label: "Gastos passivos" },
+];
 
 export default function Categorias() {
   const [categorias, setCategorias] = useState([]);
@@ -49,7 +58,14 @@ export default function Categorias() {
   function abrirEditar(cat) {
     setModo("editar");
     setEditandoId(cat.id);
-    setForm({ nome: cat.nome, cor: cat.cor, regra: cat.regra });
+    setForm({
+      nome: cat.nome,
+      cor: cat.cor,
+      regra: cat.regra,
+      grupo: cat.grupo || "fixo",
+      previsto: cat.previsto || "",
+      provedor: cat.provedor || "",
+    });
     setModalAberto(true);
   }
 
@@ -57,13 +73,22 @@ export default function Categorias() {
     e.preventDefault();
     if (!form.nome) return;
 
+    const payload = {
+      nome: form.nome,
+      cor: form.cor,
+      regra: form.regra || "manual",
+      grupo: form.grupo,
+      previsto: Number(form.previsto) || 0,
+      provedor: form.grupo === "receita" ? form.provedor || null : null,
+    };
+
     try {
       if (modo === "criar") {
-        const categoria = await api.post("/categories", { nome: form.nome, cor: form.cor, regra: form.regra || "manual" });
+        const categoria = await api.post("/categories", payload);
         setCategorias((atual) => [...atual, categoria]);
         mostrarToast(`Categoria "${form.nome}" criada.`);
       } else {
-        const categoria = await api.put(`/categories/${editandoId}`, { nome: form.nome, cor: form.cor, regra: form.regra || "manual" });
+        const categoria = await api.put(`/categories/${editandoId}`, payload);
         setCategorias((atual) => atual.map((c) => (c.id === editandoId ? categoria : c)));
         mostrarToast(`Categoria "${form.nome}" atualizada.`);
       }
@@ -153,6 +178,54 @@ export default function Categorias() {
             />
           </div>
 
+          <div>
+            <div className="text-xs text-text-muted mb-1.5">Grupo</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {GRUPOS.map((g) => (
+                <button
+                  key={g.valor}
+                  type="button"
+                  onClick={() => setForm({ ...form, grupo: g.valor })}
+                  className={`text-xs px-2.5 py-1.5 rounded-[var(--radius-control)] border transition-colors ${
+                    form.grupo === g.valor
+                      ? "bg-accent-dark border-accent text-accent"
+                      : "border-border text-text-secondary hover:bg-surface-2"
+                  }`}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div>
+              <div className="text-xs text-text-muted mb-1.5">Previsto (orçamento mensal)</div>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0,00"
+                value={form.previsto}
+                onChange={(e) => setForm({ ...form, previsto: e.target.value })}
+                className="w-full bg-surface-2 border border-border rounded-[var(--radius-control)] px-3 py-1.5 text-sm outline-none"
+              />
+            </div>
+
+            {form.grupo === "receita" && (
+              <div>
+                <div className="text-xs text-text-muted mb-1.5">Provedor (quem recebe essa renda)</div>
+                <input
+                  type="text"
+                  placeholder="ex: Provedor 1"
+                  value={form.provedor}
+                  onChange={(e) => setForm({ ...form, provedor: e.target.value })}
+                  className="w-full bg-surface-2 border border-border rounded-[var(--radius-control)] px-3 py-1.5 text-sm outline-none"
+                />
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-between items-center gap-2 pt-1">
             {modo === "editar" ? (
               <button
@@ -215,7 +288,11 @@ export default function Categorias() {
                 />
                 <div>
                   <div className="text-sm font-medium">{cat.nome}</div>
-                  <div className="text-xs text-text-muted">Regra: {cat.regra}</div>
+                  <div className="text-xs text-text-muted">
+                    {GRUPOS.find((g) => g.valor === cat.grupo)?.label ?? cat.grupo}
+                    {cat.previsto > 0 && ` · previsto R$ ${cat.previsto.toLocaleString("pt-BR")}`}
+                    {cat.provedor && ` · ${cat.provedor}`}
+                  </div>
                 </div>
               </div>
 

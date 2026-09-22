@@ -6,7 +6,7 @@ import os
 
 from . import models
 from .auth import hash_password
-from .database import Base, SessionLocal, engine
+from .database import Base, SessionLocal, engine, run_light_migrations
 
 
 def _parse_data_br(data_str: str, ano: int = 2026) -> dt.date:
@@ -16,6 +16,7 @@ def _parse_data_br(data_str: str, ano: int = 2026) -> dt.date:
 
 def run():
     Base.metadata.create_all(bind=engine)
+    run_light_migrations()
     db = SessionLocal()
     try:
         if db.query(models.User).first():
@@ -27,10 +28,30 @@ def run():
         db.add(models.User(email=email, hashed_password=hash_password(senha)))
 
         categorias = {
-            "Alimentação": models.Category(nome="Alimentação", cor="var(--color-cat-2)", regra='contém "ifood", "mercado"'),
-            "Transporte": models.Category(nome="Transporte", cor="var(--color-cat-1)", regra='contém "uber", "posto", "99"'),
-            "Assinaturas": models.Category(nome="Assinaturas", cor="var(--color-cat-3)", regra='contém "netflix", "spotify"'),
-            "Renda": models.Category(nome="Renda", cor="var(--color-text-secondary)", regra="manual"),
+            # -- Receitas (equivalente às linhas D7:D16 da planilha, por provedor) --
+            "Renda": models.Category(
+                nome="Renda", cor="var(--color-text-secondary)", regra="manual",
+                grupo="receita", previsto=4200, provedor="Provedor 1",
+            ),
+            # -- Gastos fixos (bloco 100 da planilha) --
+            "Alimentação": models.Category(
+                nome="Alimentação", cor="var(--color-cat-2)", regra='contém "ifood", "mercado"',
+                grupo="fixo", previsto=600,
+            ),
+            "Assinaturas": models.Category(
+                nome="Assinaturas", cor="var(--color-cat-3)", regra='contém "netflix", "spotify"',
+                grupo="fixo", previsto=80,
+            ),
+            # -- Gastos passivos (bloco 400 da planilha) --
+            "Transporte": models.Category(
+                nome="Transporte", cor="var(--color-cat-1)", regra='contém "uber", "posto", "99"',
+                grupo="passivo", previsto=250,
+            ),
+            # -- Doações (bloco 300 da planilha) --
+            "Dízimos e ofertas": models.Category(
+                nome="Dízimos e ofertas", cor="var(--color-cat-6)", regra="manual",
+                grupo="doacao", previsto=0,
+            ),
         }
         db.add_all(categorias.values())
 

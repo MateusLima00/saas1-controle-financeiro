@@ -60,6 +60,9 @@ class CategoryBase(BaseModel):
     nome: str
     cor: str = ""
     regra: str = ""
+    grupo: str = "fixo"  # receita | fixo | investimento | doacao | passivo
+    previsto: float = 0  # orçamento mensal dessa categoria
+    provedor: str | None = None  # só relevante quando grupo == "receita"
 
 
 class CategoryCreate(CategoryBase):
@@ -70,6 +73,9 @@ class CategoryUpdate(BaseModel):
     nome: str | None = None
     cor: str | None = None
     regra: str | None = None
+    grupo: str | None = None
+    previsto: float | None = None
+    provedor: str | None = None
 
 
 class CategoryOut(CategoryBase):
@@ -317,3 +323,33 @@ class EvolucaoMesOut(BaseModel):
     mes: str
     saldo: float
     gasto: float
+
+
+# -- Orçamento (Previsto x Realizado, igual ao modelo da planilha) ------------
+
+
+class OrcamentoCategoriaOut(BaseModel):
+    categoriaId: int
+    categoria: str
+    cor: str
+    grupo: str
+    previsto: float
+    realizado: float
+
+
+class OrcamentoGrupoOut(BaseModel):
+    grupo: str
+    previsto: float
+    realizado: float
+    categorias: list[OrcamentoCategoriaOut]
+
+
+class SaldoPeriodoOut(BaseModel):
+    """Saldo = Receita realizada - Despesa realizada do mês, igual à
+    fórmula `=F17-F24` da planilha (linha RECEITAS menos linha DESPESAS)."""
+
+    receitaPrevista: float
+    receitaRealizada: float
+    despesaPrevista: float
+    despesaRealizada: float
+    saldo: float

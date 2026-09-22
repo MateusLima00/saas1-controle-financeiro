@@ -81,15 +81,12 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-      <form
-        onSubmit={handleLogin}
-        className="bg-surface rounded-card border border-border p-8 w-full max-w-sm flex flex-col items-center gap-3"
-      >
-        <div className="w-11 h-11 rounded-[var(--radius-control)] bg-accent-dark flex items-center justify-center text-accent mb-1">
-          <Wallet size={20} />
+      <form onSubmit={handleLogin} className="w-full max-w-xs flex flex-col items-center gap-3">
+        <div className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-text-secondary mb-2">
+          <Wallet size={18} />
         </div>
-        <h1 className="text-base font-medium">Entrar</h1>
-        <p className="text-xs text-text-muted -mt-2 mb-1">Acesso restrito e pessoal</p>
+        <h1 className="text-lg font-medium">Entrar</h1>
+        <p className="text-xs text-text-muted -mt-1 mb-2">Acesso restrito e pessoal</p>
 
         {GOOGLE_CLIENT_ID && (
           <>
@@ -108,7 +105,7 @@ export default function Login() {
           placeholder="seu@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full bg-surface-2 border border-border rounded-[var(--radius-control)] px-3 py-2 text-sm outline-none focus:border-accent"
+          className="w-full bg-transparent border-0 border-b border-border px-1 py-2 text-sm outline-none focus:border-accent transition-colors"
           autoComplete="username"
           required
         />
@@ -120,14 +117,14 @@ export default function Login() {
             placeholder="Senha"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
-            className="w-full bg-surface-2 border border-border rounded-[var(--radius-control)] px-3 py-2 pr-9 text-sm outline-none focus:border-accent"
+            className="w-full bg-transparent border-0 border-b border-border px-1 py-2 pr-8 text-sm outline-none focus:border-accent transition-colors"
             autoComplete="current-password"
             required
           />
           <button
             type="button"
             onClick={() => setMostrarSenha((v) => !v)}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
+            className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
             aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
           >
             {mostrarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -142,7 +139,7 @@ export default function Login() {
           </p>
         )}
 
-        <label className="w-full flex items-center gap-2 text-xs text-text-secondary mt-1">
+        <label className="w-full flex items-center gap-2 text-xs text-text-secondary mt-2">
           <input
             type="checkbox"
             checked={manterConectado}
@@ -155,12 +152,12 @@ export default function Login() {
         <button
           type="submit"
           disabled={tentativas >= BLOQUEADO_APOS || entrando}
-          className="w-full bg-accent text-white rounded-[var(--radius-control)] py-2 text-sm font-medium hover:opacity-90 transition-opacity mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-accent text-white rounded-[var(--radius-control)] py-2 text-sm font-medium hover:opacity-90 transition-opacity mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {entrando ? "Entrando..." : "Entrar"}
         </button>
 
-        <div className="flex items-center gap-1.5 text-xs text-text-muted mt-2">
+        <div className="flex items-center gap-1.5 text-xs text-text-muted mt-3">
           <ShieldCheck size={13} />
           Seus dados financeiros ficam só neste app.
         </div>

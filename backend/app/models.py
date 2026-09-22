@@ -52,6 +52,15 @@ class Category(Base):
     nome = Column(String, nullable=False)
     cor = Column(String, default="")
     regra = Column(String, default="")
+    # Espelha os 4 blocos da planilha de equilíbrio financeiro (mais
+    # "receita", que na planilha fica numa área separada mas segue a
+    # mesma lógica de previsto x realizado por código).
+    grupo = Column(String, default="fixo")  # receita | fixo | investimento | doacao | passivo
+    previsto = Column(Float, default=0)  # valor orçado/planejado por mês (a "Previsto" da planilha)
+    # Só usado quando grupo == "receita": identifica de qual provedor/
+    # fonte de renda é (ex: "Provedor 1", "Provedor 2"), igual à planilha
+    # que separa salário/vale/comissão por pessoa.
+    provedor = Column(String, nullable=True)
 
     transacoes = relationship("Transaction", back_populates="categoria")
 

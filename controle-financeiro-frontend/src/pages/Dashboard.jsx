@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, Check } from "lucide-react";
+import { RefreshCw, Check, PieChart } from "lucide-react";
 import MetricCard from "../components/MetricCard";
 import GraficoCategorias from "../components/GraficoCategorias";
 import GraficoEvolucao from "../components/GraficoEvolucao";
@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [assinaturas, setAssinaturas] = useState([]);
   const [faturas, setFaturas] = useState([]);
   const [parcelamentos, setParcelamentos] = useState([]);
+  const [saldoPeriodo, setSaldoPeriodo] = useState(null);
 
   function carregarDados() {
     return Promise.all([
@@ -56,6 +57,7 @@ export default function Dashboard() {
       api.get("/subscriptions"),
       api.get("/parcelamentos/fatura"),
       api.get("/parcelamentos"),
+      api.get("/dashboard/saldo-periodo"),
     ]).then(
       ([
         resumoData,
@@ -67,6 +69,7 @@ export default function Dashboard() {
         assinaturasData,
         faturasData,
         parcelamentosData,
+        saldoPeriodoData,
       ]) => {
         setResumo(resumoData);
         setTransacoes(transacoesData);
@@ -77,6 +80,7 @@ export default function Dashboard() {
         setAssinaturas(assinaturasData);
         setFaturas(faturasData);
         setParcelamentos(parcelamentosData);
+        setSaldoPeriodo(saldoPeriodoData);
       }
     );
   }
@@ -263,6 +267,24 @@ export default function Dashboard() {
               ? `próxima parcela em ${formatDateShort(proximaParcelaPendente.dataVencimento)}`
               : "sem parcelas pendentes"}
           </div>
+        </Link>
+
+        <Link to="/orcamento" className="bg-surface rounded-card border border-border p-4 hover:border-accent/50 transition-colors">
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-xs text-text-secondary flex items-center gap-1.5">
+              <PieChart size={13} />
+              Orçamento do mês
+            </div>
+            <span className="text-xs text-accent">Ver detalhes</span>
+          </div>
+          <div
+            className={`text-xl font-medium ${
+              (saldoPeriodo?.saldo ?? 0) >= 0 ? "text-success" : "text-danger"
+            }`}
+          >
+            {formatCurrency(saldoPeriodo?.saldo ?? 0)}
+          </div>
+          <div className="text-xs text-text-muted mt-1">receita realizada − despesa realizada</div>
         </Link>
       </div>
     </div>

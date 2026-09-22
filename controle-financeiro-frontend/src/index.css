@@ -24,34 +24,35 @@
 */
 @theme {
   /* --- Fundos --- */
-  --color-bg: #0d1117;            /* fundo geral da página */
-  --color-surface: #161b22;       /* fundo dos cards */
-  --color-surface-2: #1c2229;     /* fundo de elementos dentro de cards (barra de progresso, badges) */
-  --color-border: #2a3038;        /* bordas sutis */
+  --color-bg: #14161b;            /* fundo geral da página - cinza-azulado */
+  --color-surface: #1c1f26;       /* fundo dos cards */
+  --color-surface-2: #23262e;     /* fundo de elementos dentro de cards (barra de progresso, badges) */
+  --color-border: #2e323b;        /* bordas sutis */
 
   /* --- Cor de destaque (accent) --- */
-  --color-accent: #7f77dd;        /* indigo - botão ativo, links, barra de progresso principal */
-  --color-accent-dark: #26215c;   /* indigo escuro - fundo de badge/menu ativo */
+  --color-accent: #6b6489;        /* roxo acinzentado fosco - botão ativo, links, barra de progresso principal */
+  --color-accent-dark: #33303f;   /* roxo acinzentado escuro - fundo de badge/menu ativo */
 
   /* --- Textos --- */
-  --color-text-primary: #e6e6e6;
-  --color-text-secondary: #9aa1ab;
-  --color-text-muted: #6b7280;
+  --color-text-primary: #e3e3e5;
+  --color-text-secondary: #9a9ba3;
+  --color-text-muted: #6b6d76;
 
   /* --- Estados semânticos (mesmo significado em qualquer tela) --- */
-  --color-danger: #e24b4a;        /* gastos, valores negativos, erro */
-  --color-success: #63c375;       /* receitas, valores positivos, meta batida */
-  --color-warning: #eab84f;       /* alertas, contas pendentes */
+  --color-danger: #b45450;        /* gastos, valores negativos, erro */
+  --color-success: #4d8f68;       /* receitas, valores positivos, meta batida */
+  --color-warning: #b58a4a;       /* alertas, contas pendentes */
 
   /* --- Cores de categoria/ícone (usadas em metas, gráficos, badges) ---
-     Ficam soltas aqui pra você poder usar qualquer uma em qualquer
-     lugar sem inventar hex novo toda hora. */
-  --color-cat-1: #7f77dd; /* indigo   */
-  --color-cat-2: #1d9e75; /* verde    */
-  --color-cat-3: #d85a30; /* laranja  */
-  --color-cat-4: #d4537e; /* rosa     */
-  --color-cat-5: #378add; /* azul     */
-  --color-cat-6: #ba7517; /* âmbar    */
+     Todas dessaturadas/foscas para combinar com o resto da paleta,
+     sem brilho neon. Ficam soltas aqui pra você poder usar qualquer
+     uma em qualquer lugar sem inventar hex novo toda hora. */
+  --color-cat-1: #6b6489; /* roxo acinzentado */
+  --color-cat-2: #4d8f68; /* verde fosco       */
+  --color-cat-3: #a3714a; /* laranja terroso   */
+  --color-cat-4: #a4586c; /* rosa fosco        */
+  --color-cat-5: #4a7690; /* azul petróleo     */
+  --color-cat-6: #a3893f; /* âmbar fosco       */
 
   /* --- Tipografia e formato --- */
   --font-app: "Inter", ui-sans-serif, system-ui, sans-serif;

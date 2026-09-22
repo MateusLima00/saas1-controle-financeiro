@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Carregado aqui (não só em main.py) porque scripts standalone como
@@ -31,3 +31,26 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def run_light_migrations():
+    """`Base.metadata.create_all` só cria tabelas que não existem ainda —
+    não adiciona coluna nova a uma tabela já criada num banco antigo. Como
+    o projeto não usa Alembic, aplicamos aqui um ALTER TABLE ADD COLUMN
+    idempotente pras colunas novas de `categories` (grupo/previsto/provedor).
+    Roda toda subida; se a coluna já existe, pula.
+    """
+    inspector = inspect(engine)
+    if "categories" not in inspector.get_table_names():
+        return  # tabela ainda nem existe — create_all cuida dela do zero
+
+    colunas_existentes = {col["name"] for col in inspector.get_columns("categories")}
+    novas_colunas = {
+        "grupo": "VARCHAR DEFAULT 'fixo'",
+        "previsto": "FLOAT DEFAULT 0",
+        "provedor": "VARCHAR",
+    }
+    with engine.begin() as conn:
+        for nome, definicao in novas_colunas.items():
+            if nome not in colunas_existentes:
+                conn.execute(text(f"ALTER TABLE categories ADD COLUMN {nome} {definicao}"))

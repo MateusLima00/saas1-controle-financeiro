@@ -10,6 +10,7 @@ import Metas from "./pages/Metas";
 import Investimentos from "./pages/Investimentos";
 import Assinaturas from "./pages/Assinaturas";
 import Parcelamentos from "./pages/Parcelamentos";
+import Orcamento from "./pages/Orcamento";
 import Categorias from "./pages/Categorias";
 import Contas from "./pages/Contas";
 
@@ -36,6 +37,7 @@ function App() {
               <Route path="/investimentos" element={<Investimentos />} />
               <Route path="/assinaturas" element={<Assinaturas />} />
               <Route path="/parcelamentos" element={<Parcelamentos />} />
+              <Route path="/orcamento" element={<Orcamento />} />
               <Route path="/categorias" element={<Categorias />} />
               <Route path="/contas" element={<Contas />} />
             </Route>

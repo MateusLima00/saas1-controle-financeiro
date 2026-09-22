@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 from . import models, scheduler
-from .database import Base, engine
+from .database import Base, engine, run_light_migrations
 from .routers import (
     accounts,
     auth,
@@ -23,6 +23,7 @@ from .routers import (
 )
 
 Base.metadata.create_all(bind=engine)
+run_light_migrations()
 
 app = FastAPI(title="Controle Financeiro API")
 

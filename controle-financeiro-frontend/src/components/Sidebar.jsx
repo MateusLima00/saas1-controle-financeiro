@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Wallet2,
   CreditCard,
+  PieChart,
   LogOut,
   X,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const itensMenu = [
   { label: "Dashboard", path: "/", Icone: LayoutDashboard },
   { label: "Extrato", path: "/extrato", Icone: Receipt },
   { label: "Gastos diários", path: "/gastos-diarios", Icone: CalendarClock },
+  { label: "Orçamento", path: "/orcamento", Icone: PieChart },
   { label: "Metas e planos", path: "/metas", Icone: Target },
   { label: "Investimentos", path: "/investimentos", Icone: TrendingUp },
   { label: "Assinaturas", path: "/assinaturas", Icone: Wallet2 },
