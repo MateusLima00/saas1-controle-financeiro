@@ -11,6 +11,7 @@ import {
   CreditCard,
   PieChart,
   LogOut,
+  Settings,
   X,
 } from "lucide-react";
 import { sair } from "../utils/auth";
@@ -36,6 +37,7 @@ const itensMenu = [
   { label: "Cartão/Parcelamentos", path: "/parcelamentos", Icone: CreditCard },
   { label: "Categorias", path: "/categorias", Icone: Tags },
   { label: "Contas", path: "/contas", Icone: Landmark },
+  { label: "Configurações", path: "/perfil", Icone: Settings },
 ];
 
 export default function Sidebar({ aberto = false, onFechar = () => {} }) {

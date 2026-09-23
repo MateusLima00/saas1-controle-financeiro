@@ -28,6 +28,19 @@ export function criarConta(email, senha) {
   return api.post("/auth/signup", { email, senha });
 }
 
+export function trocarSenha(senhaAtual, senhaNova) {
+  return api.put("/auth/senha", { senhaAtual, senhaNova });
+}
+
+// Recuperação de senha por código enviado por email (válido 15 min).
+export function solicitarCodigoRecuperacao(email) {
+  return api.post("/auth/recuperar-senha/solicitar", { email });
+}
+
+export function confirmarRecuperacao(email, codigo, senhaNova) {
+  return api.post("/auth/recuperar-senha/confirmar", { email, codigo, senhaNova });
+}
+
 export async function sair() {
   try {
     await api.post("/auth/logout");

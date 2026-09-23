@@ -37,6 +37,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def _security_headers(request, call_next):
+    """Headers de segurança básicos que o FastAPI/Starlette não manda por
+    padrão — API pura (sem HTML renderizado aqui), então o foco é impedir
+    que o navegador tente "adivinhar" um content-type diferente do que a
+    API declarou (`nosniff`) e bloquear a API de ser carregada dentro de
+    um <iframe> de outro site (`X-Frame-Options`), que não tem nenhum uso
+    legítimo aqui."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 app.include_router(auth.router)
 app.include_router(accounts.router)
 app.include_router(categories.router)

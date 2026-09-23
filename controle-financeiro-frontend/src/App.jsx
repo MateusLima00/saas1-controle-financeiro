@@ -13,6 +13,7 @@ import Parcelamentos from "./pages/Parcelamentos";
 import Orcamento from "./pages/Orcamento";
 import Categorias from "./pages/Categorias";
 import Contas from "./pages/Contas";
+import Perfil from "./pages/Perfil";
 
 // -----------------------------------------------------------------------
 // App.jsx
@@ -40,6 +41,7 @@ function App() {
               <Route path="/orcamento" element={<Orcamento />} />
               <Route path="/categorias" element={<Categorias />} />
               <Route path="/contas" element={<Contas />} />
+              <Route path="/perfil" element={<Perfil />} />
             </Route>
           </Route>
         </Routes>

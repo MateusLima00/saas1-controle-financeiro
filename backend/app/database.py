@@ -56,6 +56,17 @@ def run_light_migrations():
                 if nome not in colunas_existentes:
                     conn.execute(text(f"ALTER TABLE categories ADD COLUMN {nome} {definicao}"))
 
+    if "subscriptions" in tabelas_existentes:
+        colunas_existentes = {col["name"] for col in inspector.get_columns("subscriptions")}
+        novas_colunas = {
+            "data_inicio": "DATE DEFAULT CURRENT_DATE",
+            "duracao_meses": "INTEGER",
+        }
+        with engine.begin() as conn:
+            for nome, definicao in novas_colunas.items():
+                if nome not in colunas_existentes:
+                    conn.execute(text(f"ALTER TABLE subscriptions ADD COLUMN {nome} {definicao}"))
+
     # -- Multi-tenant: adiciona user_id em toda tabela de dado do usuário,
     # e faz o backfill pro primeiro usuário existente (o dono original dos
     # dados, antes de existir signup) — assim nenhuma linha antiga fica

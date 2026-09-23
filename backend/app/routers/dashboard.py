@@ -1,5 +1,6 @@
 import calendar
 import datetime as dt
+import os
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
@@ -8,7 +9,21 @@ from sqlalchemy.orm import Session as DbSession
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
+from ..services.notifications import _cobrancas_do_dia, _gasto_incomum
+from ..subscription_status import assinatura_ativa
 from ..timezone_utils import hoje as _hoje
+
+
+def _float_env(nome: str, default: float) -> float:
+    try:
+        return float(os.getenv(nome, str(default)))
+    except ValueError:
+        return default
+
+
+LOW_BALANCE_THRESHOLD = _float_env("LOW_BALANCE_THRESHOLD", 0)
+UNUSUAL_SPEND_MULTIPLIER = _float_env("UNUSUAL_SPEND_MULTIPLIER", 2)
+DIAS_ALERTA_CONTA = 3
 
 router = APIRouter(
     prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(get_current_user)]
@@ -279,3 +294,58 @@ def evolucao(
             schemas.EvolucaoMesOut(mes=dt.date(ano, mes, 1).strftime("%b"), saldo=saldo, gasto=gasto)
         )
     return resultado
+
+
+@router.get("/notificacoes", response_model=list[schemas.NotificacaoOut])
+def notificacoes(db: DbSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Sino de notificação: as mesmas regras que já disparam email
+    (contas a vencer, saldo baixo, gasto incomum de ontem), calculadas na
+    hora — não depende do email ter sido enviado/configurado, e não some
+    depois de ler (não temos "marcar como lida" ainda, é sempre o estado
+    atual)."""
+    hoje = _hoje()
+    itens: list[schemas.NotificacaoOut] = []
+
+    for dias in range(DIAS_ALERTA_CONTA + 1):
+        data_alvo = hoje + dt.timedelta(days=dias)
+        for principal, secundaria in _cobrancas_do_dia(db, current_user.id, data_alvo):
+            quando = "hoje" if dias == 0 else "amanhã" if dias == 1 else f"em {dias} dias"
+            itens.append(
+                schemas.NotificacaoOut(
+                    id=f"conta:{data_alvo.isoformat()}:{principal}",
+                    tipo="conta_a_vencer",
+                    titulo=principal,
+                    mensagem=f"{secundaria} · vence {quando}",
+                    urgente=dias <= 1,
+                )
+            )
+
+    contas_baixas = (
+        db.query(models.Account)
+        .filter(models.Account.user_id == current_user.id, models.Account.saldo < LOW_BALANCE_THRESHOLD)
+        .all()
+    )
+    for conta in contas_baixas:
+        itens.append(
+            schemas.NotificacaoOut(
+                id=f"saldo:{conta.id}",
+                tipo="saldo_baixo",
+                titulo=f"Saldo baixo — {conta.banco}",
+                mensagem=f"R$ {conta.saldo:.2f}",
+                urgente=True,
+            )
+        )
+
+    ontem = hoje - dt.timedelta(days=1)
+    aviso_gasto = _gasto_incomum(db, current_user.id, hoje, ontem)
+    if aviso_gasto:
+        itens.append(
+            schemas.NotificacaoOut(
+                id=f"gasto-incomum:{ontem.isoformat()}",
+                tipo="gasto_incomum",
+                titulo="Gasto acima do normal ontem",
+                mensagem=aviso_gasto.split("\n")[0].removeprefix("📈 "),
+            )
+        )
+
+    return itens

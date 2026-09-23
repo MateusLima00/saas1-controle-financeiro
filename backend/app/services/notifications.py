@@ -35,6 +35,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from .. import models
 from ..auth import get_owner_user_id
+from ..subscription_status import assinatura_ativa
 from ..timezone_utils import hoje as _hoje
 from .email_service import render_email_html, send_email
 
@@ -192,6 +193,10 @@ def _assinaturas_no_periodo(
     resultado = []
     assinaturas = db.query(models.Subscription).filter(models.Subscription.user_id == user_id).all()
     for assinatura in assinaturas:
+        # Contrato de meses já encerrado não gera mais lembrete nenhum —
+        # ver subscription_status.py.
+        if not assinatura_ativa(assinatura, inicio):
+            continue
         data = _proxima_cobranca_como_data(assinatura.proxima_cobranca, inicio)
         if data and inicio <= data <= fim:
             resultado.append((assinatura, data))

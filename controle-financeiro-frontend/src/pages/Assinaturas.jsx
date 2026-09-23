@@ -15,7 +15,16 @@ import { api } from "../api/client";
 // mensal calculado automaticamente e um popup pra adicionar/editar.
 // CRUD contra /subscriptions.
 // -----------------------------------------------------------------------
-const ASSINATURA_VAZIA = { nome: "", valor: "", ciclo: "Mensal", icone: "Clapperboard", cor: "var(--color-cat-3)", proximaCobranca: "" };
+const ASSINATURA_VAZIA = {
+  nome: "",
+  valor: "",
+  ciclo: "Mensal",
+  icone: "Clapperboard",
+  cor: "var(--color-cat-3)",
+  proximaCobranca: "",
+  duracaoMeses: "",
+  dataInicio: "",
+};
 
 export default function Assinaturas() {
   const [assinaturas, setAssinaturas] = useState([]);
@@ -31,7 +40,7 @@ export default function Assinaturas() {
   useEffect(() => {
     let ativo = true;
     api
-      .get("/subscriptions")
+      .get("/subscriptions?incluir_expiradas=true")
       .then((data) => ativo && setAssinaturas(data))
       .catch((err) => ativo && setErro(err.message || "Não foi possível carregar as assinaturas."))
       .finally(() => ativo && setCarregando(false));
@@ -41,7 +50,7 @@ export default function Assinaturas() {
   }, []);
 
   const totalMensal = assinaturas
-    .filter((a) => a.ciclo === "Mensal")
+    .filter((a) => a.ciclo === "Mensal" && a.ativa !== false)
     .reduce((soma, a) => soma + a.valor, 0);
 
   function abrirCriar() {
@@ -53,7 +62,16 @@ export default function Assinaturas() {
   function abrirEditar(a) {
     setModo("editar");
     setEditandoId(a.id);
-    setForm({ nome: a.nome, valor: String(a.valor), ciclo: a.ciclo, icone: a.icone, cor: a.cor, proximaCobranca: a.proximaCobranca });
+    setForm({
+      nome: a.nome,
+      valor: String(a.valor),
+      ciclo: a.ciclo,
+      icone: a.icone,
+      cor: a.cor,
+      proximaCobranca: a.proximaCobranca || "",
+      duracaoMeses: a.duracaoMeses ? String(a.duracaoMeses) : "",
+      dataInicio: a.dataInicio || "",
+    });
     setModalAberto(true);
   }
 
@@ -61,13 +79,20 @@ export default function Assinaturas() {
     e.preventDefault();
     if (!form.nome || !form.valor) return;
 
+    const payload = {
+      ...form,
+      valor: Number(form.valor),
+      duracaoMeses: form.duracaoMeses ? Number(form.duracaoMeses) : null,
+      dataInicio: form.duracaoMeses ? form.dataInicio || new Date().toISOString().slice(0, 10) : null,
+    };
+
     try {
       if (modo === "criar") {
-        const assinatura = await api.post("/subscriptions", { ...form, valor: Number(form.valor) });
+        const assinatura = await api.post("/subscriptions", payload);
         setAssinaturas((atual) => [...atual, assinatura]);
         mostrarToast(`Assinatura "${form.nome}" adicionada.`);
       } else {
-        const assinatura = await api.put(`/subscriptions/${editandoId}`, { ...form, valor: Number(form.valor) });
+        const assinatura = await api.put(`/subscriptions/${editandoId}`, payload);
         setAssinaturas((atual) => atual.map((a) => (a.id === editandoId ? assinatura : a)));
         mostrarToast(`Assinatura "${form.nome}" atualizada.`);
       }
@@ -160,6 +185,35 @@ export default function Assinaturas() {
                 className="flex-1 bg-surface-2 border border-border rounded-[var(--radius-control)] px-3 py-1.5 text-sm outline-none"
               />
             </div>
+
+            <div className="flex flex-col gap-1.5 pt-1">
+              <label className="text-xs text-text-muted">
+                Contrato por prazo fixo (opcional — ex: academia 12x, plano 24x)
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Duração (meses)"
+                  value={form.duracaoMeses}
+                  onChange={(e) => setForm({ ...form, duracaoMeses: e.target.value })}
+                  className="w-36 bg-surface-2 border border-border rounded-[var(--radius-control)] px-3 py-1.5 text-sm outline-none"
+                />
+                {form.duracaoMeses && (
+                  <input
+                    type="date"
+                    value={form.dataInicio}
+                    onChange={(e) => setForm({ ...form, dataInicio: e.target.value })}
+                    className="flex-1 bg-surface-2 border border-border rounded-[var(--radius-control)] px-3 py-1.5 text-sm outline-none"
+                  />
+                )}
+              </div>
+              <p className="text-[11px] text-text-muted">
+                {form.duracaoMeses
+                  ? "Deixe a data em branco pra começar hoje. Depois do prazo, some sozinha dos lembretes."
+                  : "Vazio = assinatura mensal sem fim, como hoje."}
+              </p>
+            </div>
           </div>
 
           <div className="flex justify-between items-center gap-2 pt-1">
@@ -212,13 +266,28 @@ export default function Assinaturas() {
       ) : (
         <div className="flex flex-col gap-2">
           {assinaturas.map((a) => (
-            <div key={a.id} className="bg-surface rounded-card border border-border p-4 flex items-center justify-between">
+            <div
+              key={a.id}
+              className={`bg-surface rounded-card border border-border p-4 flex items-center justify-between ${a.ativa === false ? "opacity-60" : ""}`}
+            >
               <div className="flex items-center gap-3">
                 <IconBadge nome={a.icone} cor={a.cor} />
                 <div>
-                  <div className="text-sm font-medium">{a.nome}</div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    {a.nome}
+                    {a.ativa === false && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-text-muted">
+                        Contrato encerrado
+                      </span>
+                    )}
+                    {a.ativa !== false && a.duracaoMeses && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-text-secondary">
+                        {a.duracaoMeses}x · até {a.dataFim}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-text-muted">
-                    {a.ciclo} · próxima cobrança {a.proximaCobranca}
+                    {a.ciclo} · próxima cobrança {a.proximaCobranca || "—"}
                   </div>
                 </div>
               </div>

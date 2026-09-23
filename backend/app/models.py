@@ -31,6 +31,16 @@ class Session(Base):
     expires_at = Column(DateTime, nullable=False)
 
 
+class PasswordResetCode(Base):
+    __tablename__ = "password_reset_codes"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    codigo = Column(String, nullable=False)  # 6 dígitos, texto puro (curta duração, não é senha)
+    expires_at = Column(DateTime, nullable=False)
+    usado = Column(String, default="")  # "" = não usado; preenchido com timestamp ISO quando usado
+
+
 class Account(Base):
     __tablename__ = "accounts"
 
@@ -150,6 +160,14 @@ class Subscription(Base):
     valor = Column(Float, nullable=False)
     ciclo = Column(String, default="Mensal")
     proxima_cobranca = Column(String, nullable=True)
+    # Contrato por prazo fixo (ex: academia 12x, plano de celular 24x) em
+    # vez de assinatura mensal indefinida. `duracao_meses=None` = mensal
+    # sem fim (comportamento de sempre). Com valor setado, a assinatura
+    # some sozinha da lista de ativas e dos lembretes depois que
+    # `data_inicio + duracao_meses` passar — ver `subscription_ativa` em
+    # routers/subscriptions.py, usado também pelas notificações.
+    data_inicio = Column(Date, nullable=True, default=hoje)
+    duracao_meses = Column(Integer, nullable=True)
 
 
 class CompraParcelada(Base):

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
-import { autenticar, criarConta } from "../utils/auth";
+import { autenticar, confirmarRecuperacao, criarConta, solicitarCodigoRecuperacao } from "../utils/auth";
 import { api, ApiError } from "../api/client";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -21,7 +21,7 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 //  - contador de tentativas simples (placeholder pra rate-limit visual)
 // -----------------------------------------------------------------------
 export default function Login() {
-  const [modo, setModo] = useState("entrar"); // "entrar" | "criar"
+  const [modo, setModo] = useState("entrar"); // "entrar" | "criar" | "recuperar"
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
@@ -31,19 +31,25 @@ export default function Login() {
   const [tentativas, setTentativas] = useState(0);
   const [entrando, setEntrando] = useState(false);
   const [erroGoogle, setErroGoogle] = useState("");
-  const [avisoRecuperacao, setAvisoRecuperacao] = useState(false);
+  // Fluxo de recuperação tem 2 passos: pedir o código (manda email) e
+  // depois confirmar (código + senha nova). `codigoEnviado` controla qual
+  // dos dois formulários aparece dentro do modo "recuperar".
+  const [codigoEnviado, setCodigoEnviado] = useState(false);
+  const [codigo, setCodigo] = useState("");
   const botaoGoogleRef = useRef(null);
   const navigate = useNavigate();
 
   const BLOQUEADO_APOS = 5;
   const criandoConta = modo === "criar";
+  const recuperando = modo === "recuperar";
 
   function alternarModo(novoModo) {
     setModo(novoModo);
     setErro("");
     setSenha("");
     setConfirmarSenha("");
-    setAvisoRecuperacao(false);
+    setCodigoEnviado(false);
+    setCodigo("");
   }
 
   useEffect(() => {
@@ -103,9 +109,48 @@ export default function Login() {
     }
   }
 
+  async function handleSolicitarCodigo() {
+    setEntrando(true);
+    try {
+      await solicitarCodigoRecuperacao(email);
+      setCodigoEnviado(true);
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Não foi possível enviar o código.");
+    } finally {
+      setEntrando(false);
+    }
+  }
+
+  async function handleConfirmarRecuperacao() {
+    if (senha !== confirmarSenha) {
+      setErro("As senhas novas não conferem.");
+      return;
+    }
+    setEntrando(true);
+    try {
+      await confirmarRecuperacao(email, codigo, senha);
+      navigate("/");
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Não foi possível redefinir a senha.");
+    } finally {
+      setEntrando(false);
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setErro("");
+
+    if (recuperando) {
+      if (!codigoEnviado) {
+        await handleSolicitarCodigo();
+      } else if (senha.length < 6) {
+        setErro("A nova senha precisa ter pelo menos 6 caracteres.");
+      } else {
+        await handleConfirmarRecuperacao();
+      }
+      return;
+    }
 
     if (tentativas >= BLOQUEADO_APOS) return;
 
@@ -186,83 +231,117 @@ export default function Login() {
           </div>
 
           <div className="login-form-heading">
-            <p className="login-form-kicker">{criandoConta ? "Comece hoje" : "Bem-vindo de volta"}</p>
-            <h2>{criandoConta ? "Crie sua conta" : "Acesse sua conta"}</h2>
-            <p>{criandoConta ? "Leva menos de um minuto para começar." : "Acesse sua conta e continue sua jornada."}</p>
+            <p className="login-form-kicker">
+              {recuperando ? "Recuperar acesso" : criandoConta ? "Comece hoje" : "Bem-vindo de volta"}
+            </p>
+            <h2>
+              {recuperando
+                ? codigoEnviado
+                  ? "Digite o código"
+                  : "Esqueceu sua senha?"
+                : criandoConta
+                ? "Crie sua conta"
+                : "Acesse sua conta"}
+            </h2>
+            <p>
+              {recuperando
+                ? codigoEnviado
+                  ? `Enviamos um código de 6 dígitos para ${email}. Ele vale por 15 minutos.`
+                  : "Digite seu email — vamos mandar um código pra redefinir sua senha."
+                : criandoConta
+                ? "Leva menos de um minuto para começar."
+                : "Acesse sua conta e continue sua jornada."}
+            </p>
           </div>
 
           <div className="login-fields">
-            <div className="login-field">
-              <label htmlFor="login-email">E-mail</label>
-              <div className="login-input-wrap">
-                <Mail size={18} aria-hidden="true" />
-                <input
-                  id="login-email"
-                  type="email"
-                  placeholder="Digite seu e-mail"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete={criandoConta ? "email" : "username"}
-                  required
-                />
+            {!(recuperando && codigoEnviado) && (
+              <div className="login-field">
+                <label htmlFor="login-email">E-mail</label>
+                <div className="login-input-wrap">
+                  <Mail size={18} aria-hidden="true" />
+                  <input
+                    id="login-email"
+                    type="email"
+                    placeholder="Digite seu e-mail"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete={criandoConta ? "email" : "username"}
+                    required
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="login-field">
-              <label htmlFor="login-password">Senha</label>
-              <div className="login-input-wrap">
-                <Lock size={18} aria-hidden="true" />
-                <input
-                  id="login-password"
-                  type={mostrarSenha ? "text" : "password"}
-                  placeholder="Digite sua senha"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  autoComplete={criandoConta ? "new-password" : "current-password"}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setMostrarSenha((v) => !v)}
-                  className="login-password-toggle"
-                  aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
-                >
-                  {mostrarSenha ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+            {recuperando && codigoEnviado && (
+              <div className="login-field">
+                <label htmlFor="login-codigo">Código recebido por email</label>
+                <div className="login-input-wrap">
+                  <input
+                    id="login-codigo"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="000000"
+                    maxLength={6}
+                    value={codigo}
+                    onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ""))}
+                    required
+                  />
+                </div>
               </div>
+            )}
 
-              {!criandoConta && (
-                <div className="login-field-meta">
-                  <label className="login-remember">
-                    <input
-                      type="checkbox"
-                      checked={manterConectado}
-                      onChange={(e) => setManterConectado(e.target.checked)}
-                    />
-                    <span>Manter conectado</span>
-                  </label>
-                  <button type="button" onClick={() => setAvisoRecuperacao(true)} className="login-link">
-                    Esqueci minha senha
+            {!(recuperando && !codigoEnviado) && (
+              <div className="login-field">
+                <label htmlFor="login-password">{recuperando ? "Nova senha" : "Senha"}</label>
+                <div className="login-input-wrap">
+                  <Lock size={18} aria-hidden="true" />
+                  <input
+                    id="login-password"
+                    type={mostrarSenha ? "text" : "password"}
+                    placeholder={recuperando ? "Digite a nova senha" : "Digite sua senha"}
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    autoComplete={criandoConta || recuperando ? "new-password" : "current-password"}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarSenha((v) => !v)}
+                    className="login-password-toggle"
+                    aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                  >
+                    {mostrarSenha ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
-              )}
 
-              {avisoRecuperacao && (
-                <p className="login-inline-message">
-                  Recuperação de senha ainda não disponível — fale com quem administra o app.
-                </p>
-              )}
-            </div>
+                {!criandoConta && !recuperando && (
+                  <div className="login-field-meta">
+                    <label className="login-remember">
+                      <input
+                        type="checkbox"
+                        checked={manterConectado}
+                        onChange={(e) => setManterConectado(e.target.checked)}
+                      />
+                      <span>Manter conectado</span>
+                    </label>
+                    <button type="button" onClick={() => alternarModo("recuperar")} className="login-link">
+                      Esqueci minha senha
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
-            {criandoConta && (
+            {(criandoConta || (recuperando && codigoEnviado)) && (
               <div className="login-field">
-                <label htmlFor="login-confirm-password">Confirmar senha</label>
+                <label htmlFor="login-confirm-password">Confirmar {recuperando ? "nova " : ""}senha</label>
                 <div className="login-input-wrap">
                   <Lock size={18} aria-hidden="true" />
                   <input
                     id="login-confirm-password"
                     type={mostrarSenha ? "text" : "password"}
-                    placeholder="Repita sua senha"
+                    placeholder="Repita a senha"
                     value={confirmarSenha}
                     onChange={(e) => setConfirmarSenha(e.target.value)}
                     autoComplete="new-password"
@@ -274,19 +353,33 @@ export default function Login() {
           </div>
 
           {erro && <p className="login-error">{erro}</p>}
-          {!criandoConta && tentativas >= BLOQUEADO_APOS && (
+          {!criandoConta && !recuperando && tentativas >= BLOQUEADO_APOS && (
             <p className="login-error">Muitas tentativas. Aguarde um momento antes de tentar de novo.</p>
           )}
 
           <button
             type="submit"
-            disabled={(!criandoConta && tentativas >= BLOQUEADO_APOS) || entrando}
+            disabled={(!criandoConta && !recuperando && tentativas >= BLOQUEADO_APOS) || entrando}
             className="login-primary-button"
           >
-            {entrando ? (criandoConta ? "Criando conta..." : "Entrando...") : criandoConta ? "Criar conta" : "Entrar"}
+            {recuperando
+              ? entrando
+                ? codigoEnviado
+                  ? "Salvando..."
+                  : "Enviando..."
+                : codigoEnviado
+                ? "Redefinir senha"
+                : "Enviar código"
+              : entrando
+              ? criandoConta
+                ? "Criando conta..."
+                : "Entrando..."
+              : criandoConta
+              ? "Criar conta"
+              : "Entrar"}
           </button>
 
-          {!criandoConta && GOOGLE_CLIENT_ID && (
+          {!recuperando && GOOGLE_CLIENT_ID && (
             <>
               <div className="login-divider"><span /> <b>ou</b> <span /></div>
               <div className="login-google-wrap">
@@ -297,7 +390,9 @@ export default function Login() {
           )}
 
           <p className="login-signup-copy">
-            {criandoConta ? (
+            {recuperando ? (
+              <>Lembrou a senha? <button type="button" onClick={() => alternarModo("entrar")} className="login-link">Entrar</button></>
+            ) : criandoConta ? (
               <>Já tem conta? <button type="button" onClick={() => alternarModo("entrar")} className="login-link">Entrar</button></>
             ) : (
               <>Ainda não tem conta? <button type="button" onClick={() => alternarModo("criar")} className="login-link">Criar conta</button></>

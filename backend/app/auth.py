@@ -98,15 +98,15 @@ def get_current_user(
 
 def verify_google_credential(credential: str) -> dict:
     """Valida o ID token que o Google Identity Services manda pro frontend
-    após o login, e confere contra a allowlist de um único email (uso
-    pessoal, sem multiusuário). Levanta HTTPException 401 se inválido, não
-    verificado, ou fora da allowlist."""
+    após o login. Aberto pra qualquer conta Google com email verificado —
+    igual ao signup por email/senha, cada conta nova nasce com dados
+    isolados (ver create_user_with_password / get_or_create_user).
+    Levanta HTTPException 401 se o token for inválido ou não verificado."""
     client_id = os.getenv("GOOGLE_CLIENT_ID")
-    allowed_email = os.getenv("ALLOWED_LOGIN_EMAIL", "")
-    if not client_id or not allowed_email:
+    if not client_id:
         raise HTTPException(
             status.HTTP_501_NOT_IMPLEMENTED,
-            "Login com Google ainda não configurado (GOOGLE_CLIENT_ID/ALLOWED_LOGIN_EMAIL).",
+            "Login com Google ainda não configurado (GOOGLE_CLIENT_ID).",
         )
 
     try:
@@ -118,9 +118,6 @@ def verify_google_credential(credential: str) -> dict:
 
     if not info.get("email_verified"):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Email do Google não verificado")
-
-    if info.get("email", "").lower() != allowed_email.lower():
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Email não autorizado")
 
     return info
 

@@ -15,6 +15,25 @@ class SignupRequest(BaseModel):
     senha: str = Field(min_length=6)
 
 
+class SolicitarRecuperacaoRequest(BaseModel):
+    email: EmailStr
+
+
+class ConfirmarRecuperacaoRequest(BaseModel):
+    email: EmailStr
+    codigo: str
+    senha_nova: str = Field(min_length=6, serialization_alias="senhaNova", validation_alias="senhaNova")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class TrocarSenhaRequest(BaseModel):
+    senha_atual: str = Field(serialization_alias="senhaAtual", validation_alias="senhaAtual")
+    senha_nova: str = Field(min_length=6, serialization_alias="senhaNova", validation_alias="senhaNova")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class GoogleLoginRequest(BaseModel):
     credential: str
 
@@ -223,6 +242,10 @@ class SubscriptionBase(BaseModel):
     valor: float
     ciclo: str = "Mensal"
     proxima_cobranca: str | None = Field(None, serialization_alias="proximaCobranca", validation_alias="proximaCobranca")
+    # Contrato por prazo fixo (ex: 12 meses) em vez de mensal indefinida —
+    # None = sem prazo (comportamento de sempre). Ver subscription_status.py.
+    data_inicio: dt.date | None = Field(None, serialization_alias="dataInicio", validation_alias="dataInicio")
+    duracao_meses: int | None = Field(None, serialization_alias="duracaoMeses", validation_alias="duracaoMeses")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -238,12 +261,16 @@ class SubscriptionUpdate(BaseModel):
     valor: float | None = None
     ciclo: str | None = None
     proxima_cobranca: str | None = Field(None, serialization_alias="proximaCobranca", validation_alias="proximaCobranca")
+    data_inicio: dt.date | None = Field(None, serialization_alias="dataInicio", validation_alias="dataInicio")
+    duracao_meses: int | None = Field(None, serialization_alias="duracaoMeses", validation_alias="duracaoMeses")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class SubscriptionOut(SubscriptionBase):
     id: int
+    ativa: bool = True
+    data_fim: dt.date | None = Field(None, serialization_alias="dataFim", validation_alias="dataFim")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -347,6 +374,19 @@ class OrcamentoGrupoOut(BaseModel):
     previsto: float
     realizado: float
     categorias: list[OrcamentoCategoriaOut]
+
+
+class NotificacaoOut(BaseModel):
+    """Item do sino de notificação — as mesmas regras que já disparam
+    email (dashboard.py: contas a vencer, saldo baixo, gasto incomum),
+    só que calculadas na hora pra exibir no dropdown, sem depender de
+    email ter sido configurado/entregue."""
+
+    id: str
+    tipo: str  # conta_a_vencer | saldo_baixo | gasto_incomum
+    titulo: str
+    mensagem: str
+    urgente: bool = False
 
 
 class SaldoPeriodoOut(BaseModel):

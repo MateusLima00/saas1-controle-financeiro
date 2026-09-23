@@ -10,6 +10,7 @@ from ..categorization import categoria_para_descricao, extrair_palavra_chave
 from ..database import get_db
 from ..services.import_service import importar_extrato
 from ..services.notifications import notify_goal_achieved
+from ..subscription_status import assinatura_ativa
 from ..timezone_utils import hoje
 from .transactions import _to_out
 
@@ -300,10 +301,12 @@ class NeroAssinaturaOut(BaseModel):
 @router.get("/nero/assinaturas", response_model=list[NeroAssinaturaOut])
 def listar_assinaturas_para_nero(db: DbSession = Depends(get_db)):
     owner_id = _owner_id_ou_erro(db)
+    hoje_dt = hoje()
     assinaturas = db.query(models.Subscription).filter(models.Subscription.user_id == owner_id).all()
     return [
         NeroAssinaturaOut(nome=a.nome, valor=a.valor, ciclo=a.ciclo, proximaCobranca=a.proxima_cobranca)
         for a in assinaturas
+        if assinatura_ativa(a, hoje_dt)
     ]
 
 
