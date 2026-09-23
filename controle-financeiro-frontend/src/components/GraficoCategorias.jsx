@@ -29,12 +29,12 @@ export default function GraficoCategorias({ dados }) {
         <Tooltip
           formatter={(valor) => `R$ ${valor}`}
           contentStyle={{
-            background: "#ffffff",
-            border: "1px solid #dbe4e3",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
             borderRadius: 8,
             fontSize: 12,
-            color: "#102f3d",
-            boxShadow: "0 8px 24px rgba(23, 59, 74, 0.1)",
+            color: "var(--color-text-primary)",
+            boxShadow: "var(--shadow-card)",
           }}
         />
       </PieChart>

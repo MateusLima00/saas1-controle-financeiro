@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, ShieldCheck, Wallet } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { autenticar, criarConta } from "../utils/auth";
 import { api, ApiError } from "../api/client";
 
@@ -31,6 +31,7 @@ export default function Login() {
   const [tentativas, setTentativas] = useState(0);
   const [entrando, setEntrando] = useState(false);
   const [erroGoogle, setErroGoogle] = useState("");
+  const [avisoRecuperacao, setAvisoRecuperacao] = useState(false);
   const botaoGoogleRef = useRef(null);
   const navigate = useNavigate();
 
@@ -42,6 +43,7 @@ export default function Login() {
     setErro("");
     setSenha("");
     setConfirmarSenha("");
+    setAvisoRecuperacao(false);
   }
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export default function Login() {
     window.google.accounts.id.renderButton(botaoGoogleRef.current, {
       theme: "outline",
       size: "large",
-      width: 288,
+      width: 400,
     });
   }, [navigate]);
 
@@ -121,181 +123,193 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen grid grid-cols-1 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] bg-bg">
-      {/* Painel editorial esquerdo — some em telas pequenas, o formulário
-          já se basta sozinho ali. */}
-      <div className="hidden md:flex relative flex-col justify-between bg-surface-2 px-12 lg:px-16 py-12 overflow-hidden">
-        <div className="flex items-center gap-2 text-text-primary font-semibold text-lg" style={{ fontFamily: "var(--font-heading)" }}>
-          <span className="w-8 h-8 rounded-full bg-accent-dark flex items-center justify-center text-accent">
-            <Wallet size={16} />
-          </span>
-          Bolso Leve
+    <main className="login-page">
+      <section className="login-story-panel" aria-label="Benefícios do Bolso Leve">
+        <div className="login-story-brand">
+          <span className="brand-mark" aria-hidden="true"><span /><span /></span>
+          <span>Bolso Leve</span>
         </div>
 
-        <div className="max-w-md">
-          <p className="text-success text-xs font-bold tracking-widest uppercase mb-3">Equilíbrio financeiro</p>
-          <h1 className="text-4xl lg:text-5xl leading-[1.05] text-text-primary mb-4">
-            Organize seu dinheiro com clareza.
-          </h1>
-          <p className="text-text-secondary text-base leading-relaxed">
-            Mais controle para hoje. Mais tranquilidade para amanhã.
-          </p>
+        <div className="login-story-copy">
+          <p className="login-story-kicker">Equilíbrio financeiro</p>
+          <h1>Organize seu dinheiro com clareza.</h1>
+          <p>Mais controle para hoje. Mais tranquilidade para amanhã.</p>
         </div>
 
-        {/* Ilustração simples e abstrata: gráfico de crescimento, no
-            mesmo espírito "clareza acima de decoração" do resto do app. */}
-        <svg viewBox="0 0 320 160" className="w-full max-w-sm h-auto" aria-hidden="true">
-          <circle cx="230" cy="130" r="70" fill="var(--color-accent-dark)" />
-          <g>
-            <rect x="40" y="90" width="26" height="50" rx="5" fill="var(--color-accent-dark)" />
-            <rect x="76" y="65" width="26" height="75" rx="5" fill="#b9d9d3" />
-            <rect x="112" y="35" width="26" height="105" rx="5" fill="var(--color-success)" />
-          </g>
-          <polyline
-            points="40,95 76,68 112,38 200,20"
-            fill="none"
-            stroke="var(--color-danger)"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-          <circle cx="200" cy="20" r="6" fill="var(--color-danger)" />
-        </svg>
+        <div className="login-illustration" aria-hidden="true">
+          <svg viewBox="0 0 560 330" role="presentation">
+            <circle cx="350" cy="235" r="128" fill="var(--color-accent-dark)" opacity="0.72" />
+            <path d="M272 285 C327 265 403 267 477 285" fill="none" stroke="var(--color-border)" strokeWidth="2" />
 
-        <p className="text-text-muted text-xs uppercase tracking-widest border-t border-border pt-4">
-          Finanças mais simples para uma vida mais leve.
-        </p>
-      </div>
+            <g opacity="0.95">
+              <rect x="286" y="137" width="34" height="148" rx="7" fill="var(--color-accent-dark)" />
+              <rect x="331" y="95" width="34" height="190" rx="7" fill="#a8cec4" />
+              <rect x="376" y="52" width="34" height="233" rx="7" fill="var(--color-success)" />
+              <polyline points="285,145 332,102 377,58 456,22" fill="none" stroke="var(--color-danger)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="456" cy="22" r="9" fill="var(--color-danger)" />
+            </g>
 
-      {/* Painel do formulário */}
-      <div className="flex items-center justify-center px-4 py-12">
-        <form onSubmit={handleSubmit} className="w-full max-w-sm bg-surface rounded-card border border-border p-8 flex flex-col items-center gap-3">
-          <div className="md:hidden w-10 h-10 rounded-full bg-accent-dark flex items-center justify-center text-accent mb-1">
-            <Wallet size={18} />
+            <g>
+              <ellipse cx="454" cy="287" rx="38" ry="12" fill="var(--color-danger)" opacity="0.3" />
+              <ellipse cx="454" cy="271" rx="38" ry="12" fill="var(--color-danger)" opacity="0.56" />
+              <ellipse cx="454" cy="255" rx="38" ry="12" fill="var(--color-danger)" />
+              <path d="M454 244 v28" stroke="#f1c4b7" strokeWidth="3" strokeLinecap="round" />
+            </g>
+
+            <g>
+              <rect x="56" y="194" width="190" height="98" rx="20" fill="var(--color-accent)" />
+              <path d="M56 239 h190" stroke="rgba(255,255,255,0.26)" strokeWidth="2" strokeDasharray="5 7" />
+              <rect x="76" y="215" width="70" height="9" rx="4.5" fill="rgba(255,255,255,0.32)" />
+              <path d="M224 238 h45 a18 18 0 0 1 0 36 h-45 z" fill="var(--color-accent-dark)" />
+              <circle cx="247" cy="256" r="9" fill="var(--color-success)" />
+            </g>
+
+            <g>
+              <ellipse cx="101" cy="300" rx="47" ry="8" fill="var(--color-border)" />
+              <path d="M80 299 C72 252 91 226 112 199" fill="none" stroke="var(--color-success)" strokeWidth="5" strokeLinecap="round" />
+              <path d="M103 299 C109 257 101 227 80 198" fill="none" stroke="var(--color-success)" strokeWidth="5" strokeLinecap="round" />
+              <ellipse cx="80" cy="194" rx="17" ry="25" fill="var(--color-success)" opacity="0.78" transform="rotate(-24 80 194)" />
+              <ellipse cx="111" cy="203" rx="16" ry="24" fill="#8ebbb2" transform="rotate(17 111 203)" />
+              <ellipse cx="96" cy="224" rx="14" ry="22" fill="var(--color-success)" opacity="0.56" transform="rotate(-12 96 224)" />
+            </g>
+          </svg>
+        </div>
+
+        <p className="login-story-note">Finanças mais simples para uma vida mais leve.</p>
+      </section>
+
+      <section className="login-form-panel">
+        <form onSubmit={handleSubmit} className="login-form-card">
+          <div className="login-mobile-brand">
+            <span className="brand-mark" aria-hidden="true"><span /><span /></span>
+            <span>Bolso Leve</span>
           </div>
-          <h2 className="text-xl font-bold" style={{ fontFamily: "var(--font-heading)" }}>
-            {criandoConta ? "Criar conta" : "Entrar"}
-          </h2>
-          <p className="text-xs text-text-muted -mt-1 mb-2">
-            {criandoConta ? "Leva menos de um minuto" : "Acesse sua conta e continue sua jornada"}
-          </p>
 
-          {!criandoConta && GOOGLE_CLIENT_ID && (
-            <>
-              <div ref={botaoGoogleRef} />
-              {erroGoogle && <p className="text-xs text-danger self-start">{erroGoogle}</p>}
-              <div className="w-full flex items-center gap-2 text-xs text-text-muted my-1">
-                <div className="flex-1 h-px bg-border" />
-                ou
-                <div className="flex-1 h-px bg-border" />
+          <div className="login-form-heading">
+            <p className="login-form-kicker">{criandoConta ? "Comece hoje" : "Bem-vindo de volta"}</p>
+            <h2>{criandoConta ? "Crie sua conta" : "Acesse sua conta"}</h2>
+            <p>{criandoConta ? "Leva menos de um minuto para começar." : "Acesse sua conta e continue sua jornada."}</p>
+          </div>
+
+          <div className="login-fields">
+            <div className="login-field">
+              <label htmlFor="login-email">E-mail</label>
+              <div className="login-input-wrap">
+                <Mail size={18} aria-hidden="true" />
+                <input
+                  id="login-email"
+                  type="email"
+                  placeholder="Digite seu e-mail"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete={criandoConta ? "email" : "username"}
+                  required
+                />
               </div>
-            </>
-          )}
+            </div>
 
-          <div className="w-full flex flex-col gap-1">
-            <label className="text-xs font-bold text-text-primary">E-mail</label>
-            <input
-              type="email"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-surface border border-border rounded-[var(--radius-control)] px-3 py-2.5 text-sm outline-none focus:border-success focus:ring-2 focus:ring-success/15 transition-colors"
-              autoComplete={criandoConta ? "email" : "username"}
-              required
-            />
+            <div className="login-field">
+              <label htmlFor="login-password">Senha</label>
+              <div className="login-input-wrap">
+                <Lock size={18} aria-hidden="true" />
+                <input
+                  id="login-password"
+                  type={mostrarSenha ? "text" : "password"}
+                  placeholder="Digite sua senha"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  autoComplete={criandoConta ? "new-password" : "current-password"}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarSenha((v) => !v)}
+                  className="login-password-toggle"
+                  aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {mostrarSenha ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+
+              {!criandoConta && (
+                <div className="login-field-meta">
+                  <label className="login-remember">
+                    <input
+                      type="checkbox"
+                      checked={manterConectado}
+                      onChange={(e) => setManterConectado(e.target.checked)}
+                    />
+                    <span>Manter conectado</span>
+                  </label>
+                  <button type="button" onClick={() => setAvisoRecuperacao(true)} className="login-link">
+                    Esqueci minha senha
+                  </button>
+                </div>
+              )}
+
+              {avisoRecuperacao && (
+                <p className="login-inline-message">
+                  Recuperação de senha ainda não disponível — fale com quem administra o app.
+                </p>
+              )}
+            </div>
+
+            {criandoConta && (
+              <div className="login-field">
+                <label htmlFor="login-confirm-password">Confirmar senha</label>
+                <div className="login-input-wrap">
+                  <Lock size={18} aria-hidden="true" />
+                  <input
+                    id="login-confirm-password"
+                    type={mostrarSenha ? "text" : "password"}
+                    placeholder="Repita sua senha"
+                    value={confirmarSenha}
+                    onChange={(e) => setConfirmarSenha(e.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Campo de senha com botão de mostrar/ocultar */}
-          <div className="w-full flex flex-col gap-1">
-            <label className="text-xs font-bold text-text-primary">Senha</label>
-            <div className="relative w-full">
-              <input
-                type={mostrarSenha ? "text" : "password"}
-                placeholder="Sua senha"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                className="w-full bg-surface border border-border rounded-[var(--radius-control)] px-3 py-2.5 pr-9 text-sm outline-none focus:border-success focus:ring-2 focus:ring-success/15 transition-colors"
-                autoComplete={criandoConta ? "new-password" : "current-password"}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setMostrarSenha((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
-                aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
-              >
-                {mostrarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Confirmar senha só aparece no modo "criar conta" */}
-          {criandoConta && (
-            <div className="w-full flex flex-col gap-1">
-              <label className="text-xs font-bold text-text-primary">Confirmar senha</label>
-              <input
-                type={mostrarSenha ? "text" : "password"}
-                placeholder="Repita sua senha"
-                value={confirmarSenha}
-                onChange={(e) => setConfirmarSenha(e.target.value)}
-                className="w-full bg-surface border border-border rounded-[var(--radius-control)] px-3 py-2.5 text-sm outline-none focus:border-success focus:ring-2 focus:ring-success/15 transition-colors"
-                autoComplete="new-password"
-                required
-              />
-            </div>
-          )}
-
-          {/* Mensagem de erro genérica (nunca aponta se foi o email ou a senha) */}
-          {erro && <p className="text-xs text-danger self-start">{erro}</p>}
+          {erro && <p className="login-error">{erro}</p>}
           {!criandoConta && tentativas >= BLOQUEADO_APOS && (
-            <p className="text-xs text-danger self-start">
-              Muitas tentativas. Aguarde um momento antes de tentar de novo.
-            </p>
-          )}
-
-          {!criandoConta && (
-            <label className="w-full flex items-center gap-2 text-xs text-text-secondary mt-1">
-              <input
-                type="checkbox"
-                checked={manterConectado}
-                onChange={(e) => setManterConectado(e.target.checked)}
-                className="accent-[var(--color-success)]"
-              />
-              Manter conectado neste dispositivo
-            </label>
+            <p className="login-error">Muitas tentativas. Aguarde um momento antes de tentar de novo.</p>
           )}
 
           <button
             type="submit"
             disabled={(!criandoConta && tentativas >= BLOQUEADO_APOS) || entrando}
-            className="w-full bg-accent text-white rounded-[var(--radius-control)] py-2.5 text-sm font-bold hover:opacity-90 transition-opacity mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="login-primary-button"
           >
             {entrando ? (criandoConta ? "Criando conta..." : "Entrando...") : criandoConta ? "Criar conta" : "Entrar"}
           </button>
 
-          <p className="text-xs text-text-secondary mt-1">
+          {!criandoConta && GOOGLE_CLIENT_ID && (
+            <>
+              <div className="login-divider"><span /> <b>ou</b> <span /></div>
+              <div className="login-google-wrap">
+                <div ref={botaoGoogleRef} />
+              </div>
+              {erroGoogle && <p className="login-error">{erroGoogle}</p>}
+            </>
+          )}
+
+          <p className="login-signup-copy">
             {criandoConta ? (
-              <>
-                Já tem conta?{" "}
-                <button type="button" onClick={() => alternarModo("entrar")} className="text-success font-bold hover:underline">
-                  Entrar
-                </button>
-              </>
+              <>Já tem conta? <button type="button" onClick={() => alternarModo("entrar")} className="login-link">Entrar</button></>
             ) : (
-              <>
-                Ainda não tem conta?{" "}
-                <button type="button" onClick={() => alternarModo("criar")} className="text-success font-bold hover:underline">
-                  Criar conta
-                </button>
-              </>
+              <>Ainda não tem conta? <button type="button" onClick={() => alternarModo("criar")} className="login-link">Criar conta</button></>
             )}
           </p>
 
-          <div className="flex items-center gap-1.5 text-xs text-text-muted mt-2">
-            <ShieldCheck size={13} />
-            Seus dados financeiros ficam só nessa conta — ninguém mais vê.
+          <div className="login-privacy-note">
+            <ShieldCheck size={16} aria-hidden="true" />
+            <span>Seus dados financeiros ficam só nessa conta.</span>
           </div>
         </form>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

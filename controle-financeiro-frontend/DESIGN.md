@@ -41,6 +41,17 @@ import { PiggyBank } from "lucide-react";
 
 Lista completa e pesquisável de ícones: https://lucide.dev/icons
 
+## Composição de referência aplicada
+
+O layout deve seguir a direção das telas de referência claras:
+
+- sidebar off-white de aproximadamente 224px, com marca em folhas, item ativo em verde-menta e navegação vertical espaçada;
+- barra superior desktop com breadcrumb, busca, notificações, perfil, período e ação primária “Nova transação”;
+- conteúdo em fundo off-white com cards brancos, bordas finas e sombra azul-petróleo muito discreta;
+- azul-petróleo para ação e títulos, verde-menta para entradas/evolução positiva, coral suave para gastos;
+- gráficos com cores sólidas, linhas legíveis e sem gradientes decorativos;
+- telas mobile com sidebar em drawer e barra superior compacta.
+
 ## Cores de categoria
 
 Pra metas, investimentos, gráficos etc., use as variáveis `--color-cat-1`

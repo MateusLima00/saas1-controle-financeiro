@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Receipt,
@@ -56,7 +56,10 @@ export default function Sidebar({ aberto = false, onFechar = () => {} }) {
         className="font-bold text-base mb-6 px-2 flex items-center justify-between text-text-primary"
         style={{ fontFamily: "var(--font-heading)" }}
       >
-        Bolso Leve
+        <Link to="/" className="flex items-center gap-2">
+          <span className="brand-mark" aria-hidden="true"><span /><span /></span>
+          <span>Bolso Leve</span>
+        </Link>
         <button
           onClick={onFechar}
           aria-label="Fechar menu"

@@ -24,12 +24,12 @@ export default function Modal({ aberto, titulo, onFechar, children, largo = fals
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[10vh] bg-black/60 backdrop-blur-sm animate-[fadeIn_.15s_ease-out]"
+      className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[10vh] bg-[rgba(16,47,61,0.26)] animate-[fadeIn_.15s_ease-out]"
       onClick={onFechar}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full ${largo ? "max-w-3xl" : "max-w-lg"} bg-surface border border-border rounded-card shadow-2xl shadow-black/40 animate-[popIn_.15s_ease-out]`}
+        className={`w-full ${largo ? "max-w-3xl" : "max-w-lg"} bg-surface border border-border rounded-card shadow-[0_24px_80px_rgba(16,47,61,0.22)] animate-[popIn_.15s_ease-out]`}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-sm font-semibold">{titulo}</h2>
