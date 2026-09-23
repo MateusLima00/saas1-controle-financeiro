@@ -36,21 +36,44 @@ def get_db():
 def run_light_migrations():
     """`Base.metadata.create_all` só cria tabelas que não existem ainda —
     não adiciona coluna nova a uma tabela já criada num banco antigo. Como
-    o projeto não usa Alembic, aplicamos aqui um ALTER TABLE ADD COLUMN
-    idempotente pras colunas novas de `categories` (grupo/previsto/provedor).
-    Roda toda subida; se a coluna já existe, pula.
+    o projeto não usa Alembic, aplicamos aqui ALTER TABLE ADD COLUMN
+    idempotentes. Roda toda subida; se a coluna já existe, pula.
     """
     inspector = inspect(engine)
-    if "categories" not in inspector.get_table_names():
-        return  # tabela ainda nem existe — create_all cuida dela do zero
+    tabelas_existentes = set(inspector.get_table_names())
+    if not tabelas_existentes:
+        return  # banco ainda nem existe — create_all cuida de tudo do zero
 
-    colunas_existentes = {col["name"] for col in inspector.get_columns("categories")}
-    novas_colunas = {
-        "grupo": "VARCHAR DEFAULT 'fixo'",
-        "previsto": "FLOAT DEFAULT 0",
-        "provedor": "VARCHAR",
-    }
+    if "categories" in tabelas_existentes:
+        colunas_existentes = {col["name"] for col in inspector.get_columns("categories")}
+        novas_colunas = {
+            "grupo": "VARCHAR DEFAULT 'fixo'",
+            "previsto": "FLOAT DEFAULT 0",
+            "provedor": "VARCHAR",
+        }
+        with engine.begin() as conn:
+            for nome, definicao in novas_colunas.items():
+                if nome not in colunas_existentes:
+                    conn.execute(text(f"ALTER TABLE categories ADD COLUMN {nome} {definicao}"))
+
+    # -- Multi-tenant: adiciona user_id em toda tabela de dado do usuário,
+    # e faz o backfill pro primeiro usuário existente (o dono original dos
+    # dados, antes de existir signup) — assim nenhuma linha antiga fica
+    # órfã nem vira visível pra uma conta nova.
+    tabelas_com_user_id = [
+        "accounts", "categories", "transactions", "goals", "investments",
+        "subscriptions", "compras_parceladas",
+    ]
     with engine.begin() as conn:
-        for nome, definicao in novas_colunas.items():
-            if nome not in colunas_existentes:
-                conn.execute(text(f"ALTER TABLE categories ADD COLUMN {nome} {definicao}"))
+        primeiro_usuario = conn.execute(text("SELECT id FROM users ORDER BY id LIMIT 1")).scalar()
+        for tabela in tabelas_com_user_id:
+            if tabela not in tabelas_existentes:
+                continue
+            colunas = {col["name"] for col in inspector.get_columns(tabela)}
+            if "user_id" not in colunas:
+                conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN user_id INTEGER"))
+            if primeiro_usuario is not None:
+                conn.execute(
+                    text(f"UPDATE {tabela} SET user_id = :uid WHERE user_id IS NULL"),
+                    {"uid": primeiro_usuario},
+                )

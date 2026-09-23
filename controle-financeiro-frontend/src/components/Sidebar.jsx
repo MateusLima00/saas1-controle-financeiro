@@ -48,12 +48,15 @@ export default function Sidebar({ aberto = false, onFechar = () => {} }) {
 
   return (
     <aside
-      className={`fixed md:static inset-y-0 left-0 z-50 w-64 md:w-56 bg-surface border-r border-border p-4 flex flex-col gap-1 shrink-0 transform transition-transform duration-200 ease-out md:translate-x-0 ${
+      className={`fixed md:static inset-y-0 left-0 z-50 w-64 md:w-56 bg-surface-2 border-r border-border p-4 flex flex-col gap-1 shrink-0 transform transition-transform duration-200 ease-out md:translate-x-0 ${
         aberto ? "translate-x-0" : "-translate-x-full"
       }`}
     >
-      <div className="font-medium text-base mb-6 px-2 flex items-center justify-between">
-        Finanças
+      <div
+        className="font-bold text-base mb-6 px-2 flex items-center justify-between text-text-primary"
+        style={{ fontFamily: "var(--font-heading)" }}
+      >
+        Bolso Leve
         <button
           onClick={onFechar}
           aria-label="Fechar menu"

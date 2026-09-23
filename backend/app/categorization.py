@@ -17,9 +17,10 @@ _BOILERPLATE_RE = re.compile(
 )
 
 
-def categoria_para_descricao(db: DbSession, descricao: str) -> models.Category | None:
+def categoria_para_descricao(db: DbSession, descricao: str, user_id: int) -> models.Category | None:
     descricao_lower = descricao.lower()
-    for categoria in db.query(models.Category).all():
+    categorias = db.query(models.Category).filter(models.Category.user_id == user_id).all()
+    for categoria in categorias:
         palavras_chave = _REGRA_RE.findall(categoria.regra or "")
         if any(p.lower() in descricao_lower for p in palavras_chave):
             return categoria

@@ -31,11 +31,12 @@ def _to_out(t: models.Transaction) -> schemas.TransactionOut:
 @router.get("", response_model=list[schemas.TransactionOut])
 def list_transactions(
     db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
     de: dt.date | None = None,
     ate: dt.date | None = None,
     conta_id: int | None = None,
 ):
-    query = db.query(models.Transaction)
+    query = db.query(models.Transaction).filter(models.Transaction.user_id == current_user.id)
     if de is not None:
         query = query.filter(models.Transaction.data >= de)
     if ate is not None:
@@ -47,8 +48,12 @@ def list_transactions(
 
 
 @router.post("", response_model=schemas.TransactionOut, status_code=201)
-def create_transaction(payload: schemas.TransactionCreate, db: DbSession = Depends(get_db)):
-    transacao = models.Transaction(**payload.model_dump())
+def create_transaction(
+    payload: schemas.TransactionCreate,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    transacao = models.Transaction(**payload.model_dump(), user_id=current_user.id)
     db.add(transacao)
     db.commit()
     db.refresh(transacao)
@@ -57,10 +62,15 @@ def create_transaction(payload: schemas.TransactionCreate, db: DbSession = Depen
 
 @router.put("/{transaction_id}", response_model=schemas.TransactionOut)
 def update_transaction(
-    transaction_id: int, payload: schemas.TransactionUpdate, db: DbSession = Depends(get_db)
+    transaction_id: int,
+    payload: schemas.TransactionUpdate,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ):
     transacao = (
-        db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+        db.query(models.Transaction)
+        .filter(models.Transaction.id == transaction_id, models.Transaction.user_id == current_user.id)
+        .first()
     )
     if not transacao:
         raise HTTPException(404, "Transação não encontrada")
@@ -71,7 +81,11 @@ def update_transaction(
     # Correção manual de categoria (ex: no Extrato) ensina o sistema: a
     # próxima transação com descrição parecida já cai categorizada sozinha.
     if "categoria_id" in dados and dados["categoria_id"]:
-        categoria = db.query(models.Category).filter(models.Category.id == dados["categoria_id"]).first()
+        categoria = (
+            db.query(models.Category)
+            .filter(models.Category.id == dados["categoria_id"], models.Category.user_id == current_user.id)
+            .first()
+        )
         if categoria:
             aprender_regra(db, categoria, transacao.descricao)
 
@@ -81,9 +95,15 @@ def update_transaction(
 
 
 @router.delete("/{transaction_id}", status_code=204)
-def delete_transaction(transaction_id: int, db: DbSession = Depends(get_db)):
+def delete_transaction(
+    transaction_id: int,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     transacao = (
-        db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+        db.query(models.Transaction)
+        .filter(models.Transaction.id == transaction_id, models.Transaction.user_id == current_user.id)
+        .first()
     )
     if not transacao:
         raise HTTPException(404, "Transação não encontrada")

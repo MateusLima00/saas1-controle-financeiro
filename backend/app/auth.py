@@ -39,7 +39,13 @@ def create_session(db: DbSession, user_id: int, response: Response) -> str:
     db.add(models.Session(token=token, user_id=user_id, expires_at=expires_at))
     db.commit()
 
-    is_prod = os.getenv("DEBUG", "true").lower() != "true"
+    # Default SEGURO: se DEBUG não estiver setado no ambiente, assume
+    # produção (cookie Secure). Antes o default era "true" (modo dev
+    # inseguro) — um ambiente que esquecesse de definir DEBUG=false caía
+    # silenciosamente em cookie não-Secure. Agora é o oposto: só vira dev
+    # se alguém setar DEBUG=true explicitamente (é isso que o
+    # .env.example já faz pra ambiente local).
+    is_prod = os.getenv("DEBUG", "false").lower() != "true"
     # Em produção, frontend e backend ficam em subdomínios *.onrender.com
     # diferentes — onrender.com está na Public Suffix List (como
     # github.io/vercel.app), então o navegador trata cada subdomínio como
@@ -119,6 +125,23 @@ def verify_google_credential(credential: str) -> dict:
     return info
 
 
+def create_user_with_password(db: DbSession, email: str, senha: str) -> models.User:
+    """Cria uma conta nova via email/senha (signup). Cada usuário tem seus
+    próprios dados isolados (contas, transações, categorias, metas...) —
+    ver `user_id` em models.py e o filtro por `current_user.id` em cada
+    router. Levanta HTTPException 409 se o email já estiver cadastrado."""
+    email_normalizado = email.strip().lower()
+    existente = db.query(models.User).filter(models.User.email == email_normalizado).first()
+    if existente:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Já existe uma conta com esse email")
+
+    user = models.User(email=email_normalizado, hashed_password=hash_password(senha))
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def get_or_create_user(db: DbSession, email: str) -> models.User:
     user = db.query(models.User).filter(models.User.email == email).first()
     if user:
@@ -128,6 +151,36 @@ def get_or_create_user(db: DbSession, email: str) -> models.User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def get_owner_user_id(db: DbSession) -> int | None:
+    """Retorna o id do usuário "dono" original (o primeiro criado) —
+    usado por integrações sem sessão de navegador que não têm como saber
+    "qual usuário" (bot do Telegram, integração Nero, jobs em background
+    do scheduler). Essas integrações são pessoais/de uso próprio e devem
+    continuar operando sempre sobre os dados do dono, mesmo depois que
+    outras pessoas criarem conta própria no app."""
+    user = db.query(models.User).order_by(models.User.id).first()
+    return user.id if user else None
+
+
+def require_ajax_header(x_requested_with: str | None = Header(default=None)) -> None:
+    """Exige um header custom (não enviável por um <form> HTML puro) em
+    endpoints multipart/form-data autenticados por cookie de sessão.
+
+    O motivo: multipart/form-data é um dos content-types "simples" do
+    CORS — o navegador manda a requisição SEM preflight, então nosso
+    `CORSMiddleware` (que só libera `FRONTEND_ORIGIN`) nunca chega a
+    bloquear nada. Um site malicioso poderia então montar um <form
+    method="post" enctype="multipart/form-data"> escondido apontando pro
+    nosso backend, e o navegador anexaria o cookie de sessão da vítima
+    (SameSite=None em produção) sozinho — CSRF clássico via upload.
+    Exigir este header força o navegador a tratar a requisição como
+    "não-simples" e rodar o preflight de CORS antes, que aí sim barra
+    origem não autorizada — e um <form> HTML comum não consegue setar
+    headers customizados, só JavaScript (que já respeita CORS)."""
+    if x_requested_with != "fetch":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Requisição não autorizada")
 
 
 def require_service_token(authorization: str | None = Header(default=None)) -> None:

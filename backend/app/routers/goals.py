@@ -12,13 +12,17 @@ router = APIRouter(
 
 
 @router.get("", response_model=list[schemas.GoalOut])
-def list_goals(db: DbSession = Depends(get_db)):
-    return db.query(models.Goal).all()
+def list_goals(db: DbSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return db.query(models.Goal).filter(models.Goal.user_id == current_user.id).all()
 
 
 @router.post("", response_model=schemas.GoalOut, status_code=201)
-def create_goal(payload: schemas.GoalCreate, db: DbSession = Depends(get_db)):
-    goal = models.Goal(**payload.model_dump())
+def create_goal(
+    payload: schemas.GoalCreate,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    goal = models.Goal(**payload.model_dump(), user_id=current_user.id)
     db.add(goal)
     db.commit()
     db.refresh(goal)
@@ -26,8 +30,17 @@ def create_goal(payload: schemas.GoalCreate, db: DbSession = Depends(get_db)):
 
 
 @router.put("/{goal_id}", response_model=schemas.GoalOut)
-def update_goal(goal_id: int, payload: schemas.GoalUpdate, db: DbSession = Depends(get_db)):
-    goal = db.query(models.Goal).filter(models.Goal.id == goal_id).first()
+def update_goal(
+    goal_id: int,
+    payload: schemas.GoalUpdate,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    goal = (
+        db.query(models.Goal)
+        .filter(models.Goal.id == goal_id, models.Goal.user_id == current_user.id)
+        .first()
+    )
     if not goal:
         raise HTTPException(404, "Meta não encontrada")
     ja_batida_antes = goal.valor_atual >= goal.valor_alvo
@@ -36,13 +49,21 @@ def update_goal(goal_id: int, payload: schemas.GoalUpdate, db: DbSession = Depen
     db.commit()
     db.refresh(goal)
     if not ja_batida_antes and goal.valor_atual >= goal.valor_alvo:
-        notify_goal_achieved(goal)
+        notify_goal_achieved(db, goal)
     return goal
 
 
 @router.delete("/{goal_id}", status_code=204)
-def delete_goal(goal_id: int, db: DbSession = Depends(get_db)):
-    goal = db.query(models.Goal).filter(models.Goal.id == goal_id).first()
+def delete_goal(
+    goal_id: int,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    goal = (
+        db.query(models.Goal)
+        .filter(models.Goal.id == goal_id, models.Goal.user_id == current_user.id)
+        .first()
+    )
     if not goal:
         raise HTTPException(404, "Meta não encontrada")
     db.delete(goal)
@@ -51,9 +72,16 @@ def delete_goal(goal_id: int, db: DbSession = Depends(get_db)):
 
 @router.post("/{goal_id}/contributions", response_model=schemas.GoalOut, status_code=201)
 def add_contribution(
-    goal_id: int, payload: schemas.GoalContributionCreate, db: DbSession = Depends(get_db)
+    goal_id: int,
+    payload: schemas.GoalContributionCreate,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ):
-    goal = db.query(models.Goal).filter(models.Goal.id == goal_id).first()
+    goal = (
+        db.query(models.Goal)
+        .filter(models.Goal.id == goal_id, models.Goal.user_id == current_user.id)
+        .first()
+    )
     if not goal:
         raise HTTPException(404, "Meta não encontrada")
     ja_batida_antes = goal.valor_atual >= goal.valor_alvo
@@ -63,5 +91,5 @@ def add_contribution(
     db.commit()
     db.refresh(goal)
     if not ja_batida_antes and goal.valor_atual >= goal.valor_alvo:
-        notify_goal_achieved(goal)
+        notify_goal_achieved(db, goal)
     return goal

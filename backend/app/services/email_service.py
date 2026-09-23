@@ -4,7 +4,10 @@ Variáveis de ambiente:
 - SMTP_EMAIL: conta Gmail remetente.
 - SMTP_APP_PASSWORD: App Password gerada em myaccount.google.com/apppasswords
   (nunca a senha normal da conta — Gmail exige 2FA ativado pra gerar).
-- NOTIFY_EMAIL: destinatário das notificações (default: o próprio SMTP_EMAIL).
+- NOTIFY_EMAIL: destinatário usado só quando `send_email` é chamado sem um
+  `to` explícito (fallback antigo, pré multi-tenant). Hoje `notifications.py`
+  sempre passa o email de cada usuário — cada um recebe as notificações no
+  próprio email cadastrado no signup, não mais um destinatário fixo.
 """
 import logging
 import os
@@ -21,14 +24,15 @@ def _configurado() -> bool:
     return bool(os.getenv("SMTP_EMAIL") and os.getenv("SMTP_APP_PASSWORD"))
 
 
-def send_email(subject: str, body: str, html: str | None = None) -> bool:
-    """Manda um email de notificação. `body` é sempre o fallback texto puro
-    (clientes de email antigos, preview de notificação); `html`, se
-    passado, é a versão bonita (ver `render_email_html`) — a maioria dos
-    clientes mostra o HTML quando os dois estão presentes. Retorna False
-    (e só loga) se o SMTP não estiver configurado ou se o envio falhar —
-    notificação nunca deve derrubar o fluxo principal (sync, criação de
-    meta, etc)."""
+def send_email(subject: str, body: str, html: str | None = None, to: str | None = None) -> bool:
+    """Manda um email de notificação pra `to` (o email do usuário dono da
+    notificação). `body` é sempre o fallback texto puro (clientes de email
+    antigos, preview de notificação); `html`, se passado, é a versão
+    bonita (ver `render_email_html`) — a maioria dos clientes mostra o
+    HTML quando os dois estão presentes. Retorna False (e só loga) se o
+    SMTP não estiver configurado, se `to` estiver vazio, ou se o envio
+    falhar — notificação nunca deve derrubar o fluxo principal (sync,
+    criação de meta, etc)."""
     if not _configurado():
         logger.info("Email não enviado (SMTP não configurado): %s", subject)
         return False
@@ -39,7 +43,10 @@ def send_email(subject: str, body: str, html: str | None = None) -> bool:
     # deixa NOTIFY_EMAIL="" (presente, vazio) — getenv só usa o default
     # quando a variável está AUSENTE, então com ela vazia isso mandaria
     # o email pra destinatário "" e falharia silenciosamente.
-    destinatario = os.getenv("NOTIFY_EMAIL") or remetente
+    destinatario = to or os.getenv("NOTIFY_EMAIL") or remetente
+    if not destinatario:
+        logger.warning("Email não enviado (sem destinatário): %s", subject)
+        return False
 
     msg = EmailMessage()
     msg["Subject"] = subject

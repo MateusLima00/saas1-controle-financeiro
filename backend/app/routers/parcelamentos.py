@@ -48,18 +48,31 @@ def _compra_out(c: models.CompraParcelada) -> schemas.CompraParceladaOut:
 
 
 @router.get("", response_model=list[schemas.CompraParceladaOut])
-def list_parcelamentos(db: DbSession = Depends(get_db)):
+def list_parcelamentos(db: DbSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     materializar_parcelas_vencidas(db)
-    compras = db.query(models.CompraParcelada).order_by(models.CompraParcelada.id.desc()).all()
+    compras = (
+        db.query(models.CompraParcelada)
+        .filter(models.CompraParcelada.user_id == current_user.id)
+        .order_by(models.CompraParcelada.id.desc())
+        .all()
+    )
     return [_compra_out(c) for c in compras]
 
 
 @router.post("", response_model=schemas.CompraParceladaOut, status_code=201)
-def create_parcelamento(payload: schemas.CompraParceladaCreate, db: DbSession = Depends(get_db)):
+def create_parcelamento(
+    payload: schemas.CompraParceladaCreate,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     if payload.num_parcelas < 1:
         raise HTTPException(400, "Número de parcelas precisa ser pelo menos 1.")
 
-    conta = db.query(models.Account).filter(models.Account.id == payload.conta_id).first()
+    conta = (
+        db.query(models.Account)
+        .filter(models.Account.id == payload.conta_id, models.Account.user_id == current_user.id)
+        .first()
+    )
     if not conta:
         raise HTTPException(404, "Conta (cartão) não encontrada.")
 
@@ -69,6 +82,7 @@ def create_parcelamento(payload: schemas.CompraParceladaCreate, db: DbSession = 
         num_parcelas=payload.num_parcelas,
         conta_id=payload.conta_id,
         categoria_id=payload.categoria_id,
+        user_id=current_user.id,
     )
     db.add(compra)
     db.flush()
@@ -99,8 +113,16 @@ def create_parcelamento(payload: schemas.CompraParceladaCreate, db: DbSession = 
 
 
 @router.delete("/{compra_id}", status_code=204)
-def delete_parcelamento(compra_id: int, db: DbSession = Depends(get_db)):
-    compra = db.query(models.CompraParcelada).filter(models.CompraParcelada.id == compra_id).first()
+def delete_parcelamento(
+    compra_id: int,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    compra = (
+        db.query(models.CompraParcelada)
+        .filter(models.CompraParcelada.id == compra_id, models.CompraParcelada.user_id == current_user.id)
+        .first()
+    )
     if not compra:
         raise HTTPException(404, "Compra parcelada não encontrada.")
 
@@ -117,7 +139,7 @@ def delete_parcelamento(compra_id: int, db: DbSession = Depends(get_db)):
 
 
 @router.get("/fatura", response_model=list[schemas.FaturaCartaoOut])
-def fatura_cartoes(db: DbSession = Depends(get_db)):
+def fatura_cartoes(db: DbSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     """Visão de fatura por cartão: o que já lançou esse mês (transações de
     verdade) + o que ainda vai lançar esse mês (parcelas futuras com
     vencimento dentro do mês atual, ainda não materializadas)."""
@@ -126,7 +148,11 @@ def fatura_cartoes(db: DbSession = Depends(get_db)):
     primeiro_dia = hoje.replace(day=1)
     ultimo_dia = hoje.replace(day=calendar.monthrange(hoje.year, hoje.month)[1])
 
-    cartoes = db.query(models.Account).filter(models.Account.tipo == "credit_card").all()
+    cartoes = (
+        db.query(models.Account)
+        .filter(models.Account.tipo == "credit_card", models.Account.user_id == current_user.id)
+        .all()
+    )
     resultado = []
     for cartao in cartoes:
         fechado = (

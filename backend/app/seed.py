@@ -25,40 +25,43 @@ def run():
 
         email = os.getenv("SEED_USER_EMAIL", "admin@example.com")
         senha = os.getenv("SEED_USER_PASSWORD", "troque-esta-senha")
-        db.add(models.User(email=email, hashed_password=hash_password(senha)))
+        user = models.User(email=email, hashed_password=hash_password(senha))
+        db.add(user)
+        db.flush()  # garante user.id antes de referenciar em user_id abaixo
+        uid = user.id
 
         categorias = {
             # -- Receitas (equivalente às linhas D7:D16 da planilha, por provedor) --
             "Renda": models.Category(
                 nome="Renda", cor="var(--color-text-secondary)", regra="manual",
-                grupo="receita", previsto=4200, provedor="Provedor 1",
+                grupo="receita", previsto=4200, provedor="Provedor 1", user_id=uid,
             ),
             # -- Gastos fixos (bloco 100 da planilha) --
             "Alimentação": models.Category(
                 nome="Alimentação", cor="var(--color-cat-2)", regra='contém "ifood", "mercado"',
-                grupo="fixo", previsto=600,
+                grupo="fixo", previsto=600, user_id=uid,
             ),
             "Assinaturas": models.Category(
                 nome="Assinaturas", cor="var(--color-cat-3)", regra='contém "netflix", "spotify"',
-                grupo="fixo", previsto=80,
+                grupo="fixo", previsto=80, user_id=uid,
             ),
             # -- Gastos passivos (bloco 400 da planilha) --
             "Transporte": models.Category(
                 nome="Transporte", cor="var(--color-cat-1)", regra='contém "uber", "posto", "99"',
-                grupo="passivo", previsto=250,
+                grupo="passivo", previsto=250, user_id=uid,
             ),
             # -- Doações (bloco 300 da planilha) --
             "Dízimos e ofertas": models.Category(
                 nome="Dízimos e ofertas", cor="var(--color-cat-6)", regra="manual",
-                grupo="doacao", previsto=0,
+                grupo="doacao", previsto=0, user_id=uid,
             ),
         }
         db.add_all(categorias.values())
 
         contas = [
-            models.Account(banco="Nubank", tipo="checking", saldo=3200, status="connected", ultima_sync="há 4h", origem="manual"),
-            models.Account(banco="Inter", tipo="savings", saldo=5220, status="connected", ultima_sync="há 4h", origem="manual"),
-            models.Account(banco="C6 Bank", tipo="credit_card", saldo=-680, status="error", ultima_sync="há 2 dias", origem="manual"),
+            models.Account(banco="Nubank", tipo="checking", saldo=3200, status="connected", ultima_sync="há 4h", origem="manual", user_id=uid),
+            models.Account(banco="Inter", tipo="savings", saldo=5220, status="connected", ultima_sync="há 4h", origem="manual", user_id=uid),
+            models.Account(banco="C6 Bank", tipo="credit_card", saldo=-680, status="error", ultima_sync="há 2 dias", origem="manual", user_id=uid),
         ]
         db.add_all(contas)
         db.flush()
@@ -80,6 +83,7 @@ def run():
                     valor=valor,
                     tipo=tipo,
                     origem="manual",
+                    user_id=uid,
                 )
             )
 
@@ -100,7 +104,7 @@ def run():
         for nome, tipo, icone, cor, alvo, atual, prazo, historico in metas:
             goal = models.Goal(
                 nome=nome, tipo=tipo, icone=icone, cor=cor,
-                valor_alvo=alvo, valor_atual=atual, prazo=prazo,
+                valor_alvo=alvo, valor_atual=atual, prazo=prazo, user_id=uid,
             )
             db.add(goal)
             db.flush()
@@ -113,7 +117,7 @@ def run():
             ("CDB banco X", "Renda fixa", "Landmark", "var(--color-cat-2)", 3000, 3110),
         ]
         for nome, tipo, icone, cor, investido, atual in investimentos:
-            db.add(models.Investment(nome=nome, tipo=tipo, icone=icone, cor=cor, valor_investido=investido, valor_atual=atual))
+            db.add(models.Investment(nome=nome, tipo=tipo, icone=icone, cor=cor, valor_investido=investido, valor_atual=atual, user_id=uid))
 
         assinaturas = [
             ("Netflix", "Clapperboard", "var(--color-cat-3)", 39.9, "Mensal", "10/08"),
@@ -121,7 +125,7 @@ def run():
             ("iCloud 200GB", "Cloud", "var(--color-cat-5)", 12.9, "Mensal", "22/08"),
         ]
         for nome, icone, cor, valor, ciclo, proxima in assinaturas:
-            db.add(models.Subscription(nome=nome, icone=icone, cor=cor, valor=valor, ciclo=ciclo, proxima_cobranca=proxima))
+            db.add(models.Subscription(nome=nome, icone=icone, cor=cor, valor=valor, ciclo=ciclo, proxima_cobranca=proxima, user_id=uid))
 
         db.commit()
         print(f"Seed concluído. Usuário: {email} / senha: {senha}")

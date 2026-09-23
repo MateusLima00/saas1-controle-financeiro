@@ -35,6 +35,7 @@ def materializar_parcelas_vencidas(db: DbSession) -> int:
             valor=-abs(parcela.valor),
             tipo="debit",
             origem="parcelamento",
+            user_id=compra.user_id,
         )
         db.add(transacao)
         db.flush()  # garante transacao.id antes de linkar

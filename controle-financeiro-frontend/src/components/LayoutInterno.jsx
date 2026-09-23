@@ -34,7 +34,7 @@ export default function LayoutInterno() {
           >
             <Menu size={20} />
           </button>
-          <span className="font-medium text-sm">Finanças</span>
+          <span className="font-medium text-sm">Bolso Leve</span>
         </div>
 
         <main className="flex-1 min-w-0 overflow-x-hidden">

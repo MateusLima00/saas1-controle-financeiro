@@ -1,3 +1,7 @@
+/* Manrope (títulos/valores financeiros) + Inter (corpo).
+   Precisa vir antes do @import do Tailwind (regra de CSS: @import tem
+   que preceder qualquer outra regra, exceto @charset/@layer). */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap");
 /* Importa o Tailwind v4 (não precisa de tailwind.config.js pra isso) */
 @import "tailwindcss";
 
@@ -5,6 +9,10 @@
   ---------------------------------------------------------------------
   SISTEMA DE DESIGN DO APP
   ---------------------------------------------------------------------
+  Tema claro: superfícies off-white/brancas, azul-petróleo profundo
+  como cor de ação, verde-menta pra positivo e coral pra negativo —
+  sem neon, sem gradiente.
+
   Tudo que é "visual global" mora aqui, em variáveis. Qualquer classe
   Tailwind tipo bg-surface, text-accent, rounded-card etc. lê essas
   variáveis. Ou seja: pra re-estilizar o app inteiro, você mexe só
@@ -24,51 +32,62 @@
 */
 @theme {
   /* --- Fundos --- */
-  --color-bg: #14161b;            /* fundo geral da página - cinza-azulado */
-  --color-surface: #1c1f26;       /* fundo dos cards */
-  --color-surface-2: #23262e;     /* fundo de elementos dentro de cards (barra de progresso, badges) */
-  --color-border: #2e323b;        /* bordas sutis */
+  --color-bg: #fbfcfa;            /* fundo geral da página - off-white */
+  --color-surface: #ffffff;       /* fundo dos cards */
+  --color-surface-2: #f6f8f7;     /* fundo de elementos dentro de cards (barra de progresso, badges) */
+  --color-border: #dbe4e3;        /* bordas sutis */
 
   /* --- Cor de destaque (accent) --- */
-  --color-accent: #6b6489;        /* roxo acinzentado fosco - botão ativo, links, barra de progresso principal */
-  --color-accent-dark: #33303f;   /* roxo acinzentado escuro - fundo de badge/menu ativo */
+  --color-accent: #173b4a;        /* ink - botão primário, links de maior destaque, dados principais */
+  --color-accent-dark: #ddebe4;   /* mint - fundo de badge/menu ativo (texto usa --color-accent por cima) */
 
   /* --- Textos --- */
-  --color-text-primary: #e3e3e5;
-  --color-text-secondary: #9a9ba3;
-  --color-text-muted: #6b6d76;
+  --color-text-primary: #102f3d;  /* ink-strong */
+  --color-text-secondary: #405165; /* text */
+  --color-text-muted: #7d8997;     /* muted */
 
   /* --- Estados semânticos (mesmo significado em qualquer tela) --- */
-  --color-danger: #b45450;        /* gastos, valores negativos, erro */
-  --color-success: #4d8f68;       /* receitas, valores positivos, meta batida */
-  --color-warning: #b58a4a;       /* alertas, contas pendentes */
+  --color-danger: #d78673;        /* coral - gastos, valores negativos, erro */
+  --color-success: #4f817d;       /* mint-strong - receitas, valores positivos, meta batida */
+  --color-warning: #96751f;       /* dourado escuro (legível em fundo claro) - alertas, contas pendentes */
 
   /* --- Cores de categoria/ícone (usadas em metas, gráficos, badges) ---
-     Todas dessaturadas/foscas para combinar com o resto da paleta,
-     sem brilho neon. Ficam soltas aqui pra você poder usar qualquer
-     uma em qualquer lugar sem inventar hex novo toda hora. */
-  --color-cat-1: #6b6489; /* roxo acinzentado */
-  --color-cat-2: #4d8f68; /* verde fosco       */
-  --color-cat-3: #a3714a; /* laranja terroso   */
-  --color-cat-4: #a4586c; /* rosa fosco        */
-  --color-cat-5: #4a7690; /* azul petróleo     */
-  --color-cat-6: #a3893f; /* âmbar fosco       */
+     Ficam soltas aqui pra você poder usar qualquer uma em qualquer
+     lugar sem inventar hex novo toda hora. */
+  --color-cat-1: #4f817d; /* verde-menta     */
+  --color-cat-2: #d78673; /* coral           */
+  --color-cat-3: #b98a2f; /* dourado/areia   */
+  --color-cat-4: #b06e86; /* rosa empoeirado */
+  --color-cat-5: #3f7593; /* azul petróleo   */
+  --color-cat-6: #173b4a; /* ink             */
 
   /* --- Tipografia e formato --- */
-  --font-app: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --radius-card: 12px;   /* raio padrão de cards - mude aqui pra deixar mais "quadrado" ou mais "pill" */
-  --radius-control: 8px; /* raio de inputs/botões/badges pequenos */
+  --font-app: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: "Manrope", "Inter", sans-serif;
+  --radius-card: 16px;   /* raio padrão de cards - mude aqui pra deixar mais "quadrado" ou mais "pill" */
+  --radius-control: 10px; /* raio de inputs/botões/badges pequenos */
+  --shadow-card: 0 8px 24px rgba(23, 59, 74, 0.06);
 }
 
 body {
   background-color: var(--color-bg);
   color: var(--color-text-primary);
   font-family: var(--font-app);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
 }
 
-/* Classe utilitária pra card, já que --radius-card não é nativo do Tailwind */
+h1, h2, h3 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.03em;
+}
+
+/* Classe utilitária pra card, já que --radius-card não é nativo do Tailwind.
+   Sombra suave incluída aqui pra todo card do app ganhar profundidade
+   automaticamente sobre o fundo off-white, sem precisar mexer em cada tela. */
 .rounded-card {
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 /* Barra de scroll discreta, combina com o tema escuro */

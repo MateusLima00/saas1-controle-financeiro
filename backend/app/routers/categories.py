@@ -11,13 +11,17 @@ router = APIRouter(
 
 
 @router.get("", response_model=list[schemas.CategoryOut])
-def list_categories(db: DbSession = Depends(get_db)):
-    return db.query(models.Category).all()
+def list_categories(db: DbSession = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return db.query(models.Category).filter(models.Category.user_id == current_user.id).all()
 
 
 @router.post("", response_model=schemas.CategoryOut, status_code=201)
-def create_category(payload: schemas.CategoryCreate, db: DbSession = Depends(get_db)):
-    category = models.Category(**payload.model_dump())
+def create_category(
+    payload: schemas.CategoryCreate,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    category = models.Category(**payload.model_dump(), user_id=current_user.id)
     db.add(category)
     db.commit()
     db.refresh(category)
@@ -25,8 +29,17 @@ def create_category(payload: schemas.CategoryCreate, db: DbSession = Depends(get
 
 
 @router.put("/{category_id}", response_model=schemas.CategoryOut)
-def update_category(category_id: int, payload: schemas.CategoryUpdate, db: DbSession = Depends(get_db)):
-    category = db.query(models.Category).filter(models.Category.id == category_id).first()
+def update_category(
+    category_id: int,
+    payload: schemas.CategoryUpdate,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    category = (
+        db.query(models.Category)
+        .filter(models.Category.id == category_id, models.Category.user_id == current_user.id)
+        .first()
+    )
     if not category:
         raise HTTPException(404, "Categoria não encontrada")
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -37,8 +50,16 @@ def update_category(category_id: int, payload: schemas.CategoryUpdate, db: DbSes
 
 
 @router.delete("/{category_id}", status_code=204)
-def delete_category(category_id: int, db: DbSession = Depends(get_db)):
-    category = db.query(models.Category).filter(models.Category.id == category_id).first()
+def delete_category(
+    category_id: int,
+    db: DbSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    category = (
+        db.query(models.Category)
+        .filter(models.Category.id == category_id, models.Category.user_id == current_user.id)
+        .first()
+    )
     if not category:
         raise HTTPException(404, "Categoria não encontrada")
     db.delete(category)

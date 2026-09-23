@@ -35,6 +35,12 @@ class Account(Base):
     __tablename__ = "accounts"
 
     id = Column(Integer, primary_key=True)
+    # Dono do registro (multi-tenant: cada usuário só vê os próprios
+    # dados). Nullable por causa de bancos antigos com linhas anteriores
+    # à migração — `run_light_migrations` faz o backfill pro primeiro
+    # usuário existente, mas o código nunca deve criar uma linha nova
+    # sem setar isso.
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     banco = Column(String, nullable=False)
     tipo = Column(String, nullable=False)  # checking | savings | credit_card
     saldo = Column(Float, default=0)
@@ -49,6 +55,7 @@ class Category(Base):
     __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     nome = Column(String, nullable=False)
     cor = Column(String, default="")
     regra = Column(String, default="")
@@ -69,6 +76,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     data = Column(Date, nullable=False, default=hoje)
     descricao = Column(String, nullable=False)
     categoria_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
@@ -76,6 +84,13 @@ class Transaction(Base):
     valor = Column(Float, nullable=False)
     tipo = Column(String, nullable=False)  # debit | credit
     origem = Column(String, default="manual")  # manual | telegram | import
+    # ATENÇÃO multi-tenant: esse `unique=True` é global (não é por
+    # usuário) — ficou assim na migração leve porque sqlite não faz
+    # DROP/ALTER de constraint sem recriar a tabela. Na prática, hoje é
+    # só um usuário de verdade usando a importação de extrato, então o
+    # risco de colisão entre usuários diferentes é baixo, mas se o app
+    # ganhar mais gente importando extrato ativamente, isso precisa virar
+    # um índice único composto (user_id, external_id).
     external_id = Column(String, nullable=True, unique=True, index=True)
 
     categoria = relationship("Category", back_populates="transacoes")
@@ -86,6 +101,7 @@ class Goal(Base):
     __tablename__ = "goals"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     nome = Column(String, nullable=False)
     tipo = Column(String, default="poupanca")  # poupanca | viagem
     icone = Column(String, default="PiggyBank")
@@ -114,6 +130,7 @@ class Investment(Base):
     __tablename__ = "investments"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     nome = Column(String, nullable=False)
     tipo = Column(String, nullable=False)
     icone = Column(String, default="TrendingUp")
@@ -126,6 +143,7 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     nome = Column(String, nullable=False)
     icone = Column(String, default="Cloud")
     cor = Column(String, default="")
@@ -138,6 +156,7 @@ class CompraParcelada(Base):
     __tablename__ = "compras_parceladas"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     descricao = Column(String, nullable=False)
     valor_total = Column(Float, nullable=False)
     num_parcelas = Column(Integer, nullable=False)

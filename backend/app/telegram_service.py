@@ -4,6 +4,7 @@ import os
 from sqlalchemy.orm import Session as DbSession
 
 from . import models
+from .auth import get_owner_user_id
 from .categorization import categoria_para_descricao
 from .message_parser import MensagemInvalida, parse_mensagem
 from .routers.dashboard import _gasto_no_mes
@@ -20,12 +21,17 @@ def _chat_autorizado(chat_id: int | str) -> bool:
     return esperado != "" and str(chat_id) == str(esperado)
 
 
-def _resumo_texto(db: DbSession) -> str:
+def _resumo_texto(db: DbSession, owner_id: int) -> str:
     from sqlalchemy import func
 
     hoje = dt.date.today()
-    saldo_total = db.query(func.coalesce(func.sum(models.Account.saldo), 0)).scalar() or 0
-    gasto_mes = _gasto_no_mes(db, hoje.year, hoje.month)
+    saldo_total = (
+        db.query(func.coalesce(func.sum(models.Account.saldo), 0))
+        .filter(models.Account.user_id == owner_id)
+        .scalar()
+        or 0
+    )
+    gasto_mes = _gasto_no_mes(db, owner_id, hoje.year, hoje.month)
     return (
         f"Saldo total: {_formatar_real(saldo_total)}\n"
         f"Gasto em {hoje.strftime('%m/%Y')}: {_formatar_real(gasto_mes)}"
@@ -45,8 +51,13 @@ def handle_update(db: DbSession, update: dict) -> None:
     if not _chat_autorizado(chat_id):
         return
 
+    owner_id = get_owner_user_id(db)
+    if owner_id is None:
+        enviar_mensagem(chat_id, "Nenhum usuário cadastrado ainda no Saas1.")
+        return
+
     if texto.lower().startswith("/resumo"):
-        enviar_mensagem(chat_id, _resumo_texto(db))
+        enviar_mensagem(chat_id, _resumo_texto(db, owner_id))
         return
 
     if texto.startswith("/"):
@@ -59,7 +70,7 @@ def handle_update(db: DbSession, update: dict) -> None:
         enviar_mensagem(chat_id, str(exc))
         return
 
-    categoria = categoria_para_descricao(db, parsed.descricao)
+    categoria = categoria_para_descricao(db, parsed.descricao, owner_id) if owner_id else None
     transacao = models.Transaction(
         data=parsed.data,
         descricao=parsed.descricao,
@@ -67,13 +78,12 @@ def handle_update(db: DbSession, update: dict) -> None:
         tipo=parsed.tipo,
         categoria_id=categoria.id if categoria else None,
         origem="telegram",
+        user_id=owner_id,
     )
     db.add(transacao)
     db.commit()
 
-    saldo_total = db.query(models.Account).with_entities(
-        models.Account.saldo
-    ).all()
+    saldo_total = db.query(models.Account.saldo).filter(models.Account.user_id == owner_id).all()
     saldo_total = sum(s[0] for s in saldo_total)
 
     resposta = (

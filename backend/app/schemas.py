@@ -10,6 +10,11 @@ class LoginRequest(BaseModel):
     senha: str
 
 
+class SignupRequest(BaseModel):
+    email: EmailStr
+    senha: str = Field(min_length=6)
+
+
 class GoogleLoginRequest(BaseModel):
     credential: str
 

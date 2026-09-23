@@ -11,10 +11,20 @@ from ..categorization import categoria_para_descricao
 from ..import_parsers import parse_csv, parse_ofx, parse_pdf
 from ..timezone_utils import hoje
 
+# Extrato de banco real não passa disso nem de longe (um extrato anual em
+# PDF com centenas de transações fica na casa de poucos MB) — o limite
+# existe só pra travar upload deliberadamente gigante (o parser de PDF via
+# pdfplumber é caro em CPU/memória, e o servidor é compartilhado entre
+# todo mundo que tiver conta).
+TAMANHO_MAXIMO_BYTES = 15 * 1024 * 1024  # 15 MB
+
 
 def importar_extrato(
     db: DbSession, account: models.Account, filename: str, conteudo: bytes
 ) -> schemas.ImportResultOut:
+    if len(conteudo) > TAMANHO_MAXIMO_BYTES:
+        raise HTTPException(413, f"Arquivo muito grande (máximo {TAMANHO_MAXIMO_BYTES // (1024 * 1024)}MB).")
+
     nome = (filename or "").lower()
 
     try:
@@ -34,7 +44,8 @@ def importar_extrato(
     ja_existentes = {
         row[0]
         for row in db.query(models.Transaction.external_id).filter(
-            models.Transaction.external_id.in_([t.external_id for t in transacoes])
+            models.Transaction.user_id == account.user_id,
+            models.Transaction.external_id.in_([t.external_id for t in transacoes]),
         )
     }
     # Também rastreia external_id repetido DENTRO do próprio arquivo (ex:
@@ -50,7 +61,7 @@ def importar_extrato(
             duplicadas += 1
             continue
         vistos_neste_import.add(t.external_id)
-        categoria = categoria_para_descricao(db, t.descricao)
+        categoria = categoria_para_descricao(db, t.descricao, account.user_id)
         db.add(
             models.Transaction(
                 data=dt.date.fromisoformat(t.data),
@@ -61,6 +72,7 @@ def importar_extrato(
                 conta_id=account.id,
                 origem="import",
                 external_id=t.external_id,
+                user_id=account.user_id,
             )
         )
         importadas += 1

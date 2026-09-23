@@ -22,17 +22,18 @@ export default function GraficoEvolucao({ dados }) {
           </linearGradient>
         </defs>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="mes" tick={{ fill: "#9a9ba3", fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fill: "#9a9ba3", fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
+        <XAxis dataKey="mes" tick={{ fill: "#7d8997", fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: "#7d8997", fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
         <Tooltip
           formatter={(valor, nome) => [`R$ ${valor.toLocaleString("pt-BR")}`, nome === "saldo" ? "Saldo" : "Gasto"]}
-          labelStyle={{ color: "#e3e3e5" }}
+          labelStyle={{ color: "#102f3d" }}
           contentStyle={{
-            background: "#1c1f26",
-            border: "1px solid #2e323b",
+            background: "#ffffff",
+            border: "1px solid #dbe4e3",
             borderRadius: 8,
             fontSize: 12,
-            color: "#e3e3e5",
+            color: "#102f3d",
+            boxShadow: "0 8px 24px rgba(23, 59, 74, 0.1)",
           }}
         />
         <Area type="monotone" dataKey="saldo" stroke="var(--color-accent)" strokeWidth={2} fill="url(#corSaldo)" />

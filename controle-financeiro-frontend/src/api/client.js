@@ -66,6 +66,11 @@ async function upload(path, file) {
   const resp = await fetchComRetry(`${BASE_URL}${path}`, {
     method: "POST",
     credentials: "include",
+    // Header custom exigido pelo backend (ver require_ajax_header em
+    // auth.py) — multipart/form-data não dispara preflight de CORS
+    // sozinho, então isso força o navegador a validar a origem antes de
+    // mandar a requisição de verdade (proteção contra CSRF via upload).
+    headers: { "X-Requested-With": "fetch" },
     body: formData,
   });
 
