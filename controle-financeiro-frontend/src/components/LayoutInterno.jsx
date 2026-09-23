@@ -207,15 +207,20 @@ function Topbar({ titulo, nomeUsuario, email }) {
 export default function LayoutInterno() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [email, setEmail] = useState("");
+  const [nome, setNome] = useState("");
   const { pathname } = useLocation();
   const titulo = titulos[pathname] || "Visão geral";
-  const nomeUsuario = email.split("@")[0];
+  const nomeUsuario = nome || email.split("@")[0];
 
   useEffect(() => {
     let ativo = true;
     api
       .get("/auth/me")
-      .then((data) => ativo && setEmail(data.email || ""))
+      .then((data) => {
+        if (!ativo) return;
+        setEmail(data.email || "");
+        setNome(data.nome || "");
+      })
       .catch(() => {});
     return () => {
       ativo = false;

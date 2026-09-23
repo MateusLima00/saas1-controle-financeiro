@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, LogOut, Mail, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, LogOut, Mail, ShieldCheck, User } from "lucide-react";
 import { api, ApiError } from "../api/client";
-import { sair, trocarSenha } from "../utils/auth";
+import { atualizarNome, sair, trocarSenha } from "../utils/auth";
 import { useToast } from "../components/ToastProvider";
 
 // -----------------------------------------------------------------------
@@ -14,6 +14,9 @@ import { useToast } from "../components/ToastProvider";
 // -----------------------------------------------------------------------
 export default function Perfil() {
   const [email, setEmail] = useState("");
+  const [nome, setNome] = useState("");
+  const [nomeSalvo, setNomeSalvo] = useState("");
+  const [salvandoNome, setSalvandoNome] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [senhaAtual, setSenhaAtual] = useState("");
   const [senhaNova, setSenhaNova] = useState("");
@@ -28,12 +31,34 @@ export default function Perfil() {
     let ativo = true;
     api
       .get("/auth/me")
-      .then((data) => ativo && setEmail(data.email))
+      .then((data) => {
+        if (!ativo) return;
+        setEmail(data.email);
+        setNome(data.nome || "");
+        setNomeSalvo(data.nome || "");
+      })
       .finally(() => ativo && setCarregando(false));
     return () => {
       ativo = false;
     };
   }, []);
+
+  async function handleSalvarNome(e) {
+    e.preventDefault();
+    if (!nome.trim() || nome.trim() === nomeSalvo || salvandoNome) return;
+
+    setSalvandoNome(true);
+    try {
+      const data = await atualizarNome(nome.trim());
+      setNome(data.nome || "");
+      setNomeSalvo(data.nome || "");
+      mostrarToast("Nome atualizado.");
+    } catch (err) {
+      mostrarToast(err instanceof ApiError ? err.message : "Não foi possível salvar o nome.", "erro");
+    } finally {
+      setSalvandoNome(false);
+    }
+  }
 
   async function handleTrocarSenha(e) {
     e.preventDefault();
@@ -72,21 +97,48 @@ export default function Perfil() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
-      <h1 className="text-2xl mb-1">Configurações da conta</h1>
-      <p className="text-text-secondary text-sm mb-5">Seus dados de acesso e preferências.</p>
-
-      <div className="bg-surface rounded-card border border-border p-5 mb-4">
-        <h2 className="text-sm font-bold mb-3">Conta</h2>
-        <div className="flex items-center gap-2 text-sm text-text-secondary">
-          <Mail size={15} />
-          {email}
-        </div>
+    <div className="p-6 max-w-xl mx-auto">
+      <div className="text-center mb-6">
+        <h1 className="text-2xl mb-1">Configurações da conta</h1>
+        <p className="text-text-secondary text-sm">Seus dados de acesso e preferências.</p>
       </div>
 
       <div className="bg-surface rounded-card border border-border p-5 mb-4">
-        <h2 className="text-sm font-bold mb-3">Trocar senha</h2>
-        <form onSubmit={handleTrocarSenha} className="flex flex-col gap-3 max-w-sm">
+        <h2 className="text-sm font-bold mb-3 text-center">Conta</h2>
+        <div className="flex items-center justify-center gap-2 text-sm text-text-secondary mb-4">
+          <Mail size={15} />
+          {email}
+        </div>
+
+        <form onSubmit={handleSalvarNome} className="flex flex-col gap-1 max-w-sm mx-auto">
+          <label className="text-xs font-bold text-text-primary">Nome de exibição</label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+              <input
+                type="text"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Como você quer ser chamado"
+                maxLength={60}
+                className="w-full bg-surface border border-border rounded-[var(--radius-control)] pl-9 pr-3 py-2 text-sm outline-none focus:border-success focus:ring-2 focus:ring-success/15 transition-colors"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={salvandoNome || !nome.trim() || nome.trim() === nomeSalvo}
+              className="bg-accent text-white rounded-[var(--radius-control)] px-4 py-2 text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {salvandoNome ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
+          <p className="text-[11px] text-text-muted mt-1">Aparece na barra do topo e na saudação do painel.</p>
+        </form>
+      </div>
+
+      <div className="bg-surface rounded-card border border-border p-5 mb-4">
+        <h2 className="text-sm font-bold mb-3 text-center">Trocar senha</h2>
+        <form onSubmit={handleTrocarSenha} className="flex flex-col gap-3 max-w-sm mx-auto">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-bold text-text-primary">Senha atual</label>
             <input
@@ -136,24 +188,26 @@ export default function Perfil() {
           <button
             type="submit"
             disabled={salvando}
-            className="self-start bg-accent text-white rounded-[var(--radius-control)] px-4 py-2 text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="self-center bg-accent text-white rounded-[var(--radius-control)] px-4 py-2 text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {salvando ? "Salvando..." : "Salvar nova senha"}
           </button>
         </form>
-        <p className="flex items-center gap-1.5 text-xs text-text-muted mt-3">
+        <p className="flex items-center justify-center gap-1.5 text-xs text-text-muted mt-3">
           <ShieldCheck size={13} />
           Contas criadas via Google não têm senha própria pra trocar aqui.
         </p>
       </div>
 
-      <button
-        onClick={handleSair}
-        className="flex items-center gap-2 text-sm text-text-secondary hover:text-danger transition-colors"
-      >
-        <LogOut size={16} />
-        Sair da conta
-      </button>
+      <div className="flex justify-center">
+        <button
+          onClick={handleSair}
+          className="flex items-center gap-2 text-sm text-text-secondary hover:text-danger transition-colors"
+        >
+          <LogOut size={16} />
+          Sair da conta
+        </button>
+      </div>
     </div>
   );
 }

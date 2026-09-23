@@ -32,6 +32,10 @@ export function trocarSenha(senhaAtual, senhaNova) {
   return api.put("/auth/senha", { senhaAtual, senhaNova });
 }
 
+export function atualizarNome(nome) {
+  return api.put("/auth/perfil", { nome });
+}
+
 // Recuperação de senha por código enviado por email (válido 15 min).
 export function solicitarCodigoRecuperacao(email) {
   return api.post("/auth/recuperar-senha/solicitar", { email });

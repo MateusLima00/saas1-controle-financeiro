@@ -45,7 +45,7 @@ def login(payload: schemas.LoginRequest, request: Request, response: Response, d
 
     limpar_tentativas(f"login:{ip}:{email_normalizado}")
     create_session(db, user.id, response)
-    return schemas.MeResponse(email=user.email)
+    return schemas.MeResponse(email=user.email, nome=user.nome)
 
 
 @router.post("/signup", response_model=schemas.MeResponse, status_code=201)
@@ -62,7 +62,7 @@ def signup(payload: schemas.SignupRequest, request: Request, response: Response,
 
     user = create_user_with_password(db, payload.email, payload.senha)
     create_session(db, user.id, response)
-    return schemas.MeResponse(email=user.email)
+    return schemas.MeResponse(email=user.email, nome=user.nome)
 
 
 @router.post("/google", response_model=schemas.MeResponse)
@@ -72,7 +72,7 @@ def login_google(
     info = verify_google_credential(payload.credential)
     user = get_or_create_user(db, info["email"])
     create_session(db, user.id, response)
-    return schemas.MeResponse(email=user.email)
+    return schemas.MeResponse(email=user.email, nome=user.nome)
 
 
 @router.post("/logout")
@@ -87,7 +87,18 @@ def logout(
 
 @router.get("/me", response_model=schemas.MeResponse)
 def me(current_user: models.User = Depends(get_current_user)):
-    return schemas.MeResponse(email=current_user.email)
+    return schemas.MeResponse(email=current_user.email, nome=current_user.nome)
+
+
+@router.put("/perfil", response_model=schemas.MeResponse)
+def atualizar_perfil(
+    payload: schemas.AtualizarPerfilRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: DbSession = Depends(get_db),
+):
+    current_user.nome = payload.nome.strip()
+    db.commit()
+    return schemas.MeResponse(email=current_user.email, nome=current_user.nome)
 
 
 @router.put("/senha")
@@ -186,4 +197,4 @@ def confirmar_recuperacao(
 
     limpar_tentativas(f"confirmar-recuperar:{ip}:{email_normalizado}")
     create_session(db, user.id, response)
-    return schemas.MeResponse(email=user.email)
+    return schemas.MeResponse(email=user.email, nome=user.nome)

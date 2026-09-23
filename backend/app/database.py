@@ -44,6 +44,12 @@ def run_light_migrations():
     if not tabelas_existentes:
         return  # banco ainda nem existe — create_all cuida de tudo do zero
 
+    if "users" in tabelas_existentes:
+        colunas_existentes = {col["name"] for col in inspector.get_columns("users")}
+        if "nome" not in colunas_existentes:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN nome VARCHAR"))
+
     if "categories" in tabelas_existentes:
         colunas_existentes = {col["name"] for col in inspector.get_columns("categories")}
         novas_colunas = {

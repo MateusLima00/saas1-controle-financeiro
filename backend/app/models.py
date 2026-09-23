@@ -21,6 +21,9 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
+    # Nome de exibição, editável pelo usuário — opcional. Enquanto vazio,
+    # o frontend cai pra parte antes do "@" do email.
+    nome = Column(String, nullable=True)
 
 
 class Session(Base):

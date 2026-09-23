@@ -40,6 +40,11 @@ class GoogleLoginRequest(BaseModel):
 
 class MeResponse(BaseModel):
     email: EmailStr
+    nome: str | None = None
+
+
+class AtualizarPerfilRequest(BaseModel):
+    nome: str = Field(min_length=1, max_length=60)
 
 
 # -- Accounts -------------------------------------------------------------

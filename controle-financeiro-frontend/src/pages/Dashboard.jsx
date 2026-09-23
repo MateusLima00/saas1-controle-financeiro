@@ -80,6 +80,7 @@ export default function Dashboard() {
   const [parcelamentos, setParcelamentos] = useState([]);
   const [saldoPeriodo, setSaldoPeriodo] = useState(null);
   const [emailUsuario, setEmailUsuario] = useState("");
+  const [nomeUsuarioApi, setNomeUsuarioApi] = useState("");
 
   function carregarDados() {
     return Promise.all([
@@ -116,6 +117,7 @@ export default function Dashboard() {
         setParcelamentos(parcelamentosData);
         setSaldoPeriodo(saldoPeriodoData);
         setEmailUsuario(meData.email);
+        setNomeUsuarioApi(meData.nome || "");
       }
     );
   }
@@ -139,7 +141,7 @@ export default function Dashboard() {
     return <div className="p-6 text-sm text-danger">{erro}</div>;
   }
 
-  const nomeUsuario = emailUsuario.split("@")[0] || "";
+  const nomeUsuario = nomeUsuarioApi || emailUsuario.split("@")[0] || "";
   const ultimasTransacoes = transacoes.slice(0, 5);
 
   const tendenciaSaldo = calcularTendencia(resumo.saldoTotal, resumo.saldoMesAnterior);
