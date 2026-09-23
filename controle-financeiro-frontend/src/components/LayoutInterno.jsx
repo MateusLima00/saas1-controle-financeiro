@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { Bell, CalendarDays, ChevronDown, Menu, Plus, Search } from "lucide-react";
 import Sidebar from "./Sidebar";
+import { api } from "../api/client";
 
 // -----------------------------------------------------------------------
 // LayoutInterno.jsx
@@ -24,11 +25,12 @@ const titulos = {
   "/contas": "Contas",
 };
 
-function Topbar({ titulo }) {
+function Topbar({ titulo, nomeUsuario }) {
+  const inicial = (nomeUsuario || "?").charAt(0).toUpperCase();
   return (
     <header className="hidden md:flex items-center justify-between gap-5 min-h-[76px] px-6 lg:px-12 border-b border-border bg-bg">
       <div className="flex items-center gap-2 text-xs text-text-muted whitespace-nowrap">
-        <span>Clara</span>
+        <span>Bolso Leve</span>
         <span className="text-border">/</span>
         <strong className="text-text-primary font-semibold">{titulo}</strong>
       </div>
@@ -49,8 +51,8 @@ function Topbar({ titulo }) {
         </button>
 
         <div className="flex items-center gap-2 pl-2 border-l border-border text-text-primary text-sm">
-          <span className="grid place-items-center w-9 h-9 rounded-full border-2 border-surface bg-accent text-white font-bold">M</span>
-          <strong className="hidden lg:block font-semibold">Mateus</strong>
+          <span className="grid place-items-center w-9 h-9 rounded-full border-2 border-surface bg-accent text-white font-bold">{inicial}</span>
+          <strong className="hidden lg:block font-semibold truncate max-w-[140px]">{nomeUsuario || "..."}</strong>
           <ChevronDown size={15} className="text-text-muted" />
         </div>
 
@@ -73,8 +75,20 @@ function Topbar({ titulo }) {
 
 export default function LayoutInterno() {
   const [menuAberto, setMenuAberto] = useState(false);
+  const [nomeUsuario, setNomeUsuario] = useState("");
   const { pathname } = useLocation();
   const titulo = titulos[pathname] || "Visão geral";
+
+  useEffect(() => {
+    let ativo = true;
+    api
+      .get("/auth/me")
+      .then((data) => ativo && setNomeUsuario((data.email || "").split("@")[0]))
+      .catch(() => {});
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-bg text-text-primary">
@@ -88,7 +102,7 @@ export default function LayoutInterno() {
       <Sidebar aberto={menuAberto} onFechar={() => setMenuAberto(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar titulo={titulo} />
+        <Topbar titulo={titulo} nomeUsuario={nomeUsuario} />
         <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-surface sticky top-0 z-30">
           <button
             onClick={() => setMenuAberto(true)}

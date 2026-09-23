@@ -16,7 +16,6 @@ import GraficoEvolucao from "../components/GraficoEvolucao";
 import { IconeDinamico } from "../components/IconPicker";
 import { formatCurrency, formatDateShort } from "../utils/format";
 import { api } from "../api/client";
-import { estaAutenticado } from "../utils/auth";
 
 // -----------------------------------------------------------------------
 // Dashboard.jsx
